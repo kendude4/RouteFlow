@@ -1,0 +1,2730 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RouteFlow — Driver Scheduling</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0f14;
+    --surface: #161920;
+    --surface2: #1e222c;
+    --border: #2a2f3d;
+    --accent: #f0a500;
+    --accent2: #e05c2a;
+    --green: #2ecc8a;
+    --red: #e0435a;
+    --blue: #4a9eff;
+    --text: #e8eaf0;
+    --muted: #6b7280;
+    --font-display: 'Bebas Neue', sans-serif;
+    --font-body: 'DM Sans', sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    min-height: 100vh;
+    font-size: 14px;
+  }
+
+  /* TOP BAR */
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 28px;
+    height: 56px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .logo {
+    font-family: var(--font-display);
+    font-size: 26px;
+    letter-spacing: 2px;
+    color: var(--accent);
+  }
+
+  .logo span { color: var(--text); }
+
+  .nav-tabs {
+    display: flex;
+    gap: 4px;
+  }
+
+  .nav-tab {
+    padding: 6px 18px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    color: var(--muted);
+    transition: all 0.2s;
+    border: none;
+    background: none;
+    font-family: var(--font-body);
+    font-size: 13px;
+  }
+
+  .nav-tab.active {
+    background: var(--accent);
+    color: #000;
+  }
+
+  .nav-tab:hover:not(.active) {
+    background: var(--surface2);
+    color: var(--text);
+  }
+
+  .date-badge {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--muted);
+    background: var(--surface2);
+    padding: 4px 12px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+  }
+
+  /* MAIN LAYOUT */
+  .main {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: 0;
+    height: calc(100vh - 56px);
+  }
+
+  .sidebar {
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .content-area {
+    overflow-y: auto;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  /* SECTION HEADERS */
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+
+  .section-title {
+    font-family: var(--font-display);
+    font-size: 15px;
+    letter-spacing: 2px;
+    color: var(--accent);
+  }
+
+  /* CARDS */
+  .card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+  }
+
+  /* FORM INPUTS */
+  input, select, textarea {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    padding: 8px 12px;
+    font-family: var(--font-body);
+    font-size: 13px;
+    width: 100%;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  input:focus, select:focus, textarea:focus {
+    border-color: var(--accent);
+  }
+
+  select option { background: var(--surface2); }
+
+  label {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 5px;
+  }
+
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .form-group { margin-bottom: 12px; }
+
+  /* BUTTONS */
+  .btn {
+    padding: 8px 18px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    font-family: var(--font-body);
+    font-weight: 600;
+    font-size: 13px;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #000;
+  }
+
+  .btn-primary:hover { background: #d4920a; }
+
+  .btn-success {
+    background: var(--green);
+    color: #000;
+  }
+
+  .btn-success:hover { filter: brightness(0.9); }
+
+  .btn-danger {
+    background: var(--red);
+    color: #fff;
+  }
+
+  .btn-danger:hover { filter: brightness(0.9); }
+
+  .btn-ghost {
+    background: var(--border);
+    color: var(--text);
+  }
+
+  .btn-ghost:hover { background: var(--surface2); }
+
+  .btn-sm {
+    padding: 5px 12px;
+    font-size: 12px;
+  }
+
+  .btn-full { width: 100%; justify-content: center; }
+
+  /* DRIVER CARDS */
+  .driver-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: border-color 0.2s;
+    position: relative;
+  }
+
+  .driver-card:hover { border-color: var(--accent); }
+  .driver-card.selected { border-color: var(--accent); background: #1a1500; }
+
+  .driver-avatar {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-display);
+    font-size: 16px;
+    flex-shrink: 0;
+  }
+
+  .driver-info { flex: 1; min-width: 0; }
+  .driver-name { font-weight: 600; font-size: 13px; }
+  .driver-meta { color: var(--muted); font-size: 11px; margin-top: 2px; }
+
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .status-available { background: var(--green); }
+  .status-assigned { background: var(--accent); }
+  .status-off { background: var(--red); }
+
+  .badge {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .badge-green { background: rgba(46,204,138,0.15); color: var(--green); }
+  .badge-amber { background: rgba(240,165,0,0.15); color: var(--accent); }
+  .badge-red { background: rgba(224,67,90,0.15); color: var(--red); }
+  .badge-blue { background: rgba(74,158,255,0.15); color: var(--blue); }
+
+  /* ROUTE CARDS */
+  .route-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    display: grid;
+    grid-template-columns: auto 1fr auto auto;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 8px;
+    transition: border-color 0.2s;
+  }
+
+  .route-card:hover { border-color: var(--border); }
+
+  .route-number {
+    font-family: var(--font-mono);
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--accent);
+    min-width: 48px;
+  }
+
+  .route-area { font-weight: 500; }
+  .route-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  .assigned-driver {
+    font-size: 12px;
+    color: var(--muted);
+    text-align: right;
+  }
+
+  .assigned-driver strong { color: var(--text); display: block; font-size: 13px; }
+
+  /* SCHEDULE GRID */
+  .schedule-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 6px;
+  }
+
+  .day-col { min-width: 0; }
+
+  .day-header {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted);
+    text-align: center;
+    padding: 6px 0;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .day-header.today { color: var(--accent); }
+
+  .schedule-cell {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px;
+    min-height: 72px;
+    font-size: 11px;
+    cursor: pointer;
+    transition: border-color 0.2s;
+  }
+
+  .schedule-cell:hover { border-color: var(--accent); }
+  .schedule-cell.today { border-color: rgba(240,165,0,0.4); }
+
+  .cell-route {
+    background: rgba(240,165,0,0.12);
+    border-left: 2px solid var(--accent);
+    padding: 3px 6px;
+    border-radius: 3px;
+    margin-bottom: 4px;
+    font-size: 10px;
+    line-height: 1.4;
+  }
+
+  .cell-off {
+    background: rgba(224,67,90,0.1);
+    border-left: 2px solid var(--red);
+    padding: 3px 6px;
+    border-radius: 3px;
+    font-size: 10px;
+  }
+
+  /* STATS ROW */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+
+  .stat-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+  }
+
+  .stat-value {
+    font-family: var(--font-display);
+    font-size: 36px;
+    line-height: 1;
+    color: var(--accent);
+  }
+
+  .stat-label {
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 6px;
+  }
+
+  /* MODAL */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+    backdrop-filter: blur(4px);
+  }
+
+  .modal-overlay.hidden { display: none; }
+
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 28px;
+    width: 480px;
+    max-width: 95vw;
+  }
+
+  .modal-title {
+    font-family: var(--font-display);
+    font-size: 22px;
+    letter-spacing: 2px;
+    color: var(--accent);
+    margin-bottom: 20px;
+  }
+
+  .modal-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+    justify-content: flex-end;
+  }
+
+  /* CAPABILITY PILLS */
+  .cap-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+
+  .cap-pill {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: all 0.2s;
+    color: var(--muted);
+    background: var(--bg);
+  }
+
+  .cap-pill.active {
+    background: var(--accent);
+    color: #000;
+    border-color: var(--accent);
+  }
+
+  /* TOAST */
+  .toast-container {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 300;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .toast {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 18px;
+    font-size: 13px;
+    animation: slideIn 0.3s ease;
+    border-left: 3px solid var(--green);
+    max-width: 300px;
+  }
+
+  .toast.error { border-left-color: var(--red); }
+  .toast.warn { border-left-color: var(--accent); }
+
+  @keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+
+  /* TABS CONTENT */
+  .tab-content { display: none; }
+  .tab-content.active { display: flex; flex-direction: column; gap: 20px; }
+
+  /* ROTATION BAR */
+  .rotation-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin-bottom: 8px;
+  }
+
+  .rotation-pos {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--muted);
+    min-width: 24px;
+  }
+
+  .rotation-name { flex: 1; font-size: 13px; font-weight: 500; }
+
+  .rotation-last {
+    font-size: 11px;
+    color: var(--muted);
+    font-family: var(--font-mono);
+  }
+
+  /* DIVIDER */
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 4px 0;
+  }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .empty-state {
+    text-align: center;
+    padding: 32px;
+    color: var(--muted);
+  }
+
+  .empty-state .icon { font-size: 32px; margin-bottom: 12px; }
+  .empty-state p { font-size: 13px; }
+
+  /* PDF FILE ITEM */
+  .pdf-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-bottom: 10px;
+    transition: border-color 0.2s;
+  }
+
+  .pdf-item:hover { border-color: var(--accent); }
+
+  .pdf-icon {
+    width: 40px;
+    height: 40px;
+    background: rgba(224,67,90,0.12);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+
+  .pdf-info { flex: 1; min-width: 0; }
+  .pdf-name { font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pdf-meta { font-size: 11px; color: var(--muted); margin-top: 3px; }
+
+  .pdf-actions { display: flex; gap: 8px; flex-shrink: 0; }
+
+  /* ROLE GATE */
+  .login-screen {
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 999;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .login-screen.hidden { display: none; }
+
+  .login-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 40px 44px;
+    width: 400px;
+    max-width: 95vw;
+    text-align: center;
+  }
+
+  .login-logo {
+    font-family: var(--font-display);
+    font-size: 38px;
+    letter-spacing: 3px;
+    color: var(--accent);
+    margin-bottom: 4px;
+  }
+
+  .login-logo span { color: var(--text); }
+
+  .login-sub {
+    font-size: 12px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 32px;
+  }
+
+  .role-cards {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 28px;
+  }
+
+  .role-card {
+    background: var(--surface2);
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .role-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .role-card.selected { border-color: var(--accent); background: #1a1500; }
+
+  .role-icon { font-size: 28px; margin-bottom: 8px; }
+  .role-name { font-family: var(--font-display); font-size: 17px; letter-spacing: 1px; color: var(--text); }
+  .role-desc { font-size: 10px; color: var(--muted); margin-top: 4px; line-height: 1.4; }
+
+  .pin-row {
+    display: none;
+    margin-bottom: 20px;
+  }
+
+  .pin-row.visible { display: block; }
+
+  /* ROLE BADGE in topbar */
+  .role-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 4px 14px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: border-color 0.2s;
+  }
+
+  .role-badge:hover { border-color: var(--accent); }
+  .role-badge .dot { width: 7px; height: 7px; border-radius: 50%; }
+
+  /* OPERATOR-ONLY elements hidden for drivers */
+  .operator-only { display: none; }
+  body.role-operator .operator-only { display: unset; }
+  body.role-operator .operator-only.flex { display: flex; }
+  body.role-operator .operator-only.grid { display: grid; }
+  body.role-operator .operator-only.block { display: block; }
+  body.role-operator .sidebar-op-section { display: block; }
+  .sidebar-op-section { display: none; }
+</style>
+</head>
+<body>
+
+<!-- LOGIN SCREEN -->
+<div class="login-screen" id="loginScreen">
+  <div class="login-box">
+    <div class="login-logo">Route<span>Flow</span></div>
+    <div class="login-sub">Driver Scheduling Platform</div>
+    <div class="role-cards">
+      <div class="role-card" id="roleCardOperator" onclick="selectRole('operator')">
+        <div class="role-icon">🛠️</div>
+        <div class="role-name">Operator</div>
+        <div class="role-desc">Full access — manage routes, drivers & approvals</div>
+      </div>
+      <div class="role-card" id="roleCardDriver" onclick="selectRole('driver')">
+        <div class="role-icon">🚐</div>
+        <div class="role-name">Driver</div>
+        <div class="role-desc">View schedules & submit day-off requests</div>
+      </div>
+    </div>
+    <div class="pin-row" id="pinRow">
+      <label style="display:block;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;text-align:left">Operator PIN</label>
+      <input type="password" id="pinInput" placeholder="Enter PIN" maxlength="6" style="margin-bottom:12px" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button class="btn btn-primary btn-full" id="loginBtn" onclick="doLogin()" style="display:none">Enter →</button>
+    <div id="loginError" style="color:var(--red);font-size:12px;margin-top:10px;display:none">Incorrect PIN. Try again.</div>
+  </div>
+</div>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="logo">Route<span>Flow</span></div>
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="showTab('schedule')">Shift</button>
+    <button class="nav-tab" onclick="showTab('drivers')">Drivers</button>
+    <button class="nav-tab" onclick="showTab('manifest')">Manifest</button>
+    <button class="nav-tab" onclick="showTab('dayoff')">Day-Off Requests</button>
+  </div>
+  <div style="display:flex;align-items:center;gap:10px">
+    <div class="date-badge" id="currentDate"></div>
+    <button class="btn btn-ghost btn-sm operator-only" onclick="openChangePin()" style="font-size:11px">🔑 Change PIN</button>
+    <button class="btn btn-ghost btn-sm" id="driverChangePinBtn" onclick="openDriverChangePin()" style="font-size:11px;display:none">🔑 Change PIN</button>
+    <div class="role-badge" onclick="switchRole()" title="Switch role">
+      <div class="dot" id="roleDot"></div>
+      <span id="roleLabel">—</span>
+      <span style="color:var(--muted);font-size:10px">Switch</span>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+
+    <!-- ADD ROUTE FORM — OPERATOR ONLY -->
+    <div class="sidebar-op-section">
+      <div class="section-title" style="margin-bottom:12px">Add Route</div>
+      <div class="form-group">
+        <label>Route Number</label>
+        <input type="text" id="routeNum" placeholder="e.g. 42">
+      </div>
+      <div class="form-group">
+        <label>Route Area</label>
+        <input type="text" id="routeArea" placeholder="e.g. North District">
+      </div>
+      <div class="form-group">
+        <label>Date</label>
+        <input type="date" id="routeDate">
+      </div>
+      <button class="btn btn-primary btn-full" onclick="addRoute()">＋ Add Route</button>
+    </div>
+
+    <!-- WEATHER WIDGET — both roles -->
+    <div class="card" id="weatherWidget" style="padding:14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div class="section-title" style="font-size:12px">WEATHER</div>
+        <div id="weatherLocation" style="font-size:10px;color:var(--muted)">—</div>
+      </div>
+      <div id="weatherLoading" style="font-size:12px;color:var(--muted);text-align:center;padding:8px 0">Fetching weather…</div>
+      <div id="weatherContent" style="display:none">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+          <div id="weatherIcon" style="font-size:36px;line-height:1"></div>
+          <div>
+            <div id="weatherTemp" style="font-family:var(--font-display);font-size:32px;color:var(--text);line-height:1"></div>
+            <div id="weatherDesc" style="font-size:11px;color:var(--muted);margin-top:2px"></div>
+          </div>
+        </div>
+        <div id="weatherAlert" style="display:none;background:rgba(224,67,90,0.1);border:1px solid rgba(224,67,90,0.3);border-radius:6px;padding:6px 10px;font-size:11px;color:var(--red);margin-bottom:8px"></div>
+        <div id="weatherForecast" style="display:flex;gap:4px;margin-top:4px"></div>
+      </div>
+    </div>
+
+    <!-- SHIFT SUMMARY + MOTIVATIONAL — driver only -->
+    <div id="shiftSummaryCard" style="display:none">
+      <div class="card" style="padding:14px;border-left:3px solid var(--accent)">
+        <div id="shiftSummaryLine" style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px"></div>
+        <div id="shiftMotiveLine" style="font-size:11px;color:var(--muted);line-height:1.5"></div>
+      </div>
+    </div>
+
+    <!-- MY DAY-OFF STATUS — driver only -->
+    <div id="myDayoffCard" style="display:none">
+      <div class="section-title" style="margin-bottom:8px;font-size:12px">MY DAY-OFF REQUESTS</div>
+      <div id="myDayoffList"></div>
+    </div>
+
+    <!-- ANNOUNCEMENTS — both roles -->
+    <div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div class="section-title" style="font-size:12px">ANNOUNCEMENTS</div>
+        <button class="btn btn-ghost btn-sm operator-only" onclick="openAnnouncement()" style="font-size:11px;padding:3px 10px">＋ Post</button>
+      </div>
+      <div id="announcementsList">
+        <div class="empty-state" style="padding:16px">
+          <div style="font-size:20px;margin-bottom:6px">📢</div>
+          <p style="font-size:11px">No announcements yet</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONTENT AREA -->
+  <div class="content-area">
+
+    <!-- SCHEDULE TAB -->
+    <div class="tab-content active" id="tab-schedule">
+
+      <!-- WEEK VIEW -->
+      <div class="card" style="padding:20px">
+        <div class="section-header" style="margin-bottom:16px">
+          <div style="font-family:var(--font-display);font-size:20px;letter-spacing:2px">WEEK VIEW</div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <button class="btn btn-ghost btn-sm" onclick="changeWeek(-1)">← Prev</button>
+            <span id="weekLabel" style="font-family:var(--font-mono);font-size:12px;color:var(--muted)"></span>
+            <button class="btn btn-ghost btn-sm" onclick="changeWeek(1)">Next →</button>
+          </div>
+        </div>
+        <div class="schedule-grid" id="scheduleGrid"></div>
+      </div>
+
+      <!-- TODAY'S ASSIGNMENTS -->
+      <div>
+        <div class="section-header">
+          <div style="font-family:var(--font-display);font-size:20px;letter-spacing:2px">TODAY'S SHIFTS</div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-ghost btn-sm" onclick="openTomorrowModal()" style="display:flex;align-items:center;gap:6px">
+              🌅 <span>Tomorrow</span>
+            </button>
+            <button class="btn btn-success btn-sm operator-only" onclick="autoAssignAll()">⚡ Auto-Assign All</button>
+          </div>
+        </div>
+        <div id="todayAssignments"></div>
+      </div>
+    </div>
+
+    <!-- DRIVERS TAB -->
+    <div class="tab-content" id="tab-drivers">
+      <div class="section-header">
+        <div style="font-family:var(--font-display);font-size:20px;letter-spacing:2px">DRIVER ROSTER</div>
+        <button class="btn btn-primary operator-only" onclick="openAddDriver()">＋ Add Driver</button>
+      </div>
+      <div id="driversTable"></div>
+
+      <div>
+        <div style="font-family:var(--font-display);font-size:20px;letter-spacing:2px;margin-bottom:14px">ROTATION ORDER</div>
+        <div id="rotationList"></div>
+      </div>
+    </div>
+
+    <!-- MANIFEST TAB -->
+    <div class="tab-content" id="tab-manifest">
+
+      <!-- QR CODES SECTION -->
+      <div>
+        <div class="section-header">
+          <div style="font-family:var(--font-display);font-size:20px;letter-spacing:2px">QR CODES</div>
+          <label class="btn btn-primary btn-sm operator-only" style="cursor:pointer;margin:0">
+            ＋ Upload PDF
+            <input type="file" accept="application/pdf" multiple style="display:none" onchange="handlePdfUpload(event,'qrcodes')">
+          </label>
+        </div>
+        <div class="card" style="padding:20px">
+          <div id="qrcodesFiles"></div>
+          <div id="qrcodesEmpty" class="empty-state"><div class="icon">📎</div><p>No QR Code PDFs uploaded yet.<br>Upload a PDF for drivers to view.</p></div>
+        </div>
+      </div>
+
+      <!-- MANIFEST SECTION -->
+      <div>
+        <div class="section-header">
+          <div style="font-family:var(--font-display);font-size:20px;letter-spacing:2px">MANIFEST</div>
+          <label class="btn btn-primary btn-sm operator-only" style="cursor:pointer;margin:0">
+            ＋ Upload PDF
+            <input type="file" accept="application/pdf" multiple style="display:none" onchange="handlePdfUpload(event,'manifestdocs')">
+          </label>
+        </div>
+        <div class="card" style="padding:20px">
+          <div id="manifestdocsFiles"></div>
+          <div id="manifestdocsEmpty" class="empty-state"><div class="icon">📄</div><p>No Manifest PDFs uploaded yet.<br>Upload a PDF for drivers to view.</p></div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- DAY OFF TAB -->
+    <div class="tab-content" id="tab-dayoff">
+
+      <!-- TWO COLUMN LAYOUT -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start">
+
+        <!-- LEFT: DRIVER CALENDAR VIEW -->
+        <div>
+          <div class="section-header" style="margin-bottom:14px">
+            <div style="font-family:var(--font-display);font-size:20px;letter-spacing:2px">REQUEST DAY OFF</div>
+          </div>
+
+          <!-- Driver selector -->
+          <div class="form-group" style="margin-bottom:14px">
+            <label>Driver</label>
+            <select id="calDriverSelect" onchange="renderDriverCalendar()">
+            </select>
+          </div>
+
+          <!-- Calendar card -->
+          <div class="card" style="padding:18px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+              <button class="btn btn-ghost btn-sm" onclick="changeCalMonth(-1)">←</button>
+              <div id="calMonthLabel" style="font-family:var(--font-display);font-size:18px;letter-spacing:2px;color:var(--accent)"></div>
+              <button class="btn btn-ghost btn-sm" onclick="changeCalMonth(1)">→</button>
+            </div>
+
+            <!-- Day names -->
+            <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:6px">
+              ${['Su','Mo','Tu','We','Th','Fr','Sa'].map(d => `<div style="text-align:center;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;padding:4px 0">${d}</div>`).join('')}
+            </div>
+
+            <!-- Calendar days grid -->
+            <div id="calGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px"></div>
+
+            <!-- Legend -->
+            <div style="display:flex;gap:14px;margin-top:14px;flex-wrap:wrap">
+              <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted)"><div style="width:10px;height:10px;border-radius:50%;background:var(--accent)"></div>Today</div>
+              <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted)"><div style="width:10px;height:10px;border-radius:3px;background:rgba(224,67,90,0.35)"></div>Requested</div>
+              <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted)"><div style="width:10px;height:10px;border-radius:3px;background:rgba(46,204,138,0.25)"></div>Approved</div>
+              <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted)"><div style="width:10px;height:10px;border-radius:3px;background:rgba(107,114,128,0.2)"></div>Selected</div>
+            </div>
+          </div>
+
+          <!-- Selected dates + reason -->
+          <div id="calSelectedInfo" style="margin-top:12px;display:none">
+            <div class="card" style="padding:14px">
+              <div style="font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Selected Dates</div>
+              <div id="calSelectedDates" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px"></div>
+              <div class="form-group" style="margin-bottom:10px">
+                <label>Reason (optional)</label>
+                <input type="text" id="calReason" placeholder="Vacation, personal, medical...">
+              </div>
+              <button class="btn btn-danger btn-full" onclick="submitCalDayOff()">Submit Day-Off Request</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT: OPERATOR OVERVIEW — operator only -->
+        <div class="operator-only block">
+          <div class="section-header" style="margin-bottom:14px">
+            <div style="font-family:var(--font-display);font-size:20px;letter-spacing:2px">OPERATOR VIEW</div>
+          </div>
+
+          <!-- Month overview calendar -->
+          <div class="card" style="padding:18px;margin-bottom:16px">
+            <div id="opCalMonthLabel" style="font-family:var(--font-display);font-size:15px;letter-spacing:2px;color:var(--muted);margin-bottom:12px"></div>
+            <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:6px">
+              ${['Su','Mo','Tu','We','Th','Fr','Sa'].map(d => `<div style="text-align:center;font-size:9px;font-weight:700;color:var(--muted);padding:3px 0">${d}</div>`).join('')}
+            </div>
+            <div id="opCalGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px"></div>
+          </div>
+
+          <!-- Requests list -->
+          <div style="font-family:var(--font-display);font-size:15px;letter-spacing:2px;color:var(--muted);margin-bottom:10px">PENDING REQUESTS</div>
+          <div id="dayoffList"></div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- MODALS -->
+
+<!-- Day Shifts Modal (Operator) -->
+<div class="modal-overlay hidden" id="dayShiftsModal">
+  <div class="modal" style="width:560px;max-height:80vh;display:flex;flex-direction:column">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-shrink:0">
+      <div>
+        <div class="modal-title" style="margin-bottom:2px" id="dayShiftsTitle">SHIFTS</div>
+        <div id="dayShiftsDate" style="font-size:12px;color:var(--muted);font-family:var(--font-mono)"></div>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('dayShiftsModal')" style="font-size:18px;padding:4px 10px">✕</button>
+    </div>
+    <div id="dayShiftsContent" style="overflow-y:auto;flex:1;padding-right:4px"></div>
+  </div>
+</div>
+
+<!-- Announcement Modal -->
+<div class="modal-overlay hidden" id="announcementModal">
+  <div class="modal" style="width:420px">
+    <div class="modal-title">POST ANNOUNCEMENT</div>
+    <div class="form-group">
+      <label>Message</label>
+      <textarea id="announcementText" placeholder="e.g. Briefing at 7AM Monday. Bring your safety vests." style="height:90px;resize:vertical"></textarea>
+    </div>
+    <div class="form-group">
+      <label>Priority</label>
+      <select id="announcementPriority">
+        <option value="normal">Normal</option>
+        <option value="urgent">Urgent</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('announcementModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveAnnouncement()">Post</button>
+    </div>
+  </div>
+</div>
+
+<!-- Tomorrow Modal -->
+<div class="modal-overlay hidden" id="tomorrowModal">
+  <div class="modal" style="width:560px;max-height:80vh;display:flex;flex-direction:column">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-shrink:0">
+      <div>
+        <div class="modal-title" style="margin-bottom:2px">🌅 TOMORROW</div>
+        <div id="tomorrowDateLabel" style="font-size:12px;color:var(--muted);font-family:var(--font-mono)"></div>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('tomorrowModal')" style="font-size:18px;padding:4px 10px">✕</button>
+    </div>
+    <div id="tomorrowContent" style="overflow-y:auto;flex:1;padding-right:4px"></div>
+  </div>
+</div>
+
+<!-- Add Driver Modal -->
+<div class="modal-overlay hidden" id="addDriverModal">
+  <div class="modal">
+    <div class="modal-title">ADD DRIVER</div>
+    <div class="form-group">
+      <label>Full Name</label>
+      <input type="text" id="dFullName" placeholder="e.g. John Smith">
+    </div>
+    <div class="form-group">
+      <label>Driver ID</label>
+      <input type="text" id="dDriverId" placeholder="e.g. DRV-001">
+    </div>
+    <div class="form-group">
+      <label>License Type</label>
+      <select id="dLicense">
+        <option value="Class C">Class C (Standard)</option>
+        <option value="Class B">Class B (Medium)</option>
+        <option value="Class A">Class A (Heavy)</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Capable Areas</label>
+      <input type="text" id="dAreas" placeholder="e.g. North District, Downtown, Industrial">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('addDriverModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveDriver()">Save Driver</button>
+    </div>
+  </div>
+</div>
+
+<!-- Assign Modal -->
+<div class="modal-overlay hidden" id="assignModal">
+  <div class="modal">
+    <div class="modal-title">ASSIGN DRIVER</div>
+    <div id="assignRouteInfo" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:16px;font-size:13px"></div>
+    <div class="form-group">
+      <label>Select Driver</label>
+      <select id="assignDriverSelect"></select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('assignModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="confirmAssign()">Assign</button>
+    </div>
+  </div>
+</div>
+
+<!-- Set Driver PIN Modal (Operator) -->
+<div class="modal-overlay hidden" id="setDriverPinModal">
+  <div class="modal" style="width:360px">
+    <div class="modal-title" id="setDriverPinTitle">SET DRIVER PIN</div>
+    <div id="setDriverPinName" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:13px;color:var(--muted)"></div>
+    <div class="form-group">
+      <label>New PIN</label>
+      <input type="password" id="setDPinNew" placeholder="Set PIN (4–6 digits)" maxlength="6">
+    </div>
+    <div class="form-group">
+      <label>Confirm PIN</label>
+      <input type="password" id="setDPinConfirm" placeholder="Re-enter PIN" maxlength="6">
+    </div>
+    <div id="setDPinError" style="color:var(--red);font-size:12px;margin-bottom:8px;display:none"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('setDriverPinModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveSetDriverPin()">Save PIN</button>
+    </div>
+  </div>
+</div>
+
+<!-- Driver Change PIN Modal -->
+<div class="modal-overlay hidden" id="driverChangePinModal">
+  <div class="modal" style="width:360px">
+    <div class="modal-title">CHANGE MY PIN</div>
+    <div class="form-group">
+      <label>Current PIN</label>
+      <input type="password" id="dPinCurrent" placeholder="Enter current PIN" maxlength="6">
+    </div>
+    <div class="form-group">
+      <label>New PIN</label>
+      <input type="password" id="dPinNew" placeholder="New PIN (4–6 digits)" maxlength="6">
+    </div>
+    <div class="form-group">
+      <label>Confirm New PIN</label>
+      <input type="password" id="dPinConfirm" placeholder="Re-enter new PIN" maxlength="6">
+    </div>
+    <div id="dPinChangeError" style="color:var(--red);font-size:12px;margin-bottom:8px;display:none"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('driverChangePinModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveDriverPin()">Update PIN</button>
+    </div>
+  </div>
+</div>
+
+<!-- Change PIN Modal -->
+<div class="modal-overlay hidden" id="changePinModal">
+  <div class="modal" style="width:360px">
+    <div class="modal-title">CHANGE PIN</div>
+    <div class="form-group">
+      <label>Current PIN</label>
+      <input type="password" id="pinCurrent" placeholder="Enter current PIN" maxlength="6">
+    </div>
+    <div class="form-group">
+      <label>New PIN</label>
+      <input type="password" id="pinNew" placeholder="Enter new PIN" maxlength="6">
+    </div>
+    <div class="form-group">
+      <label>Confirm New PIN</label>
+      <input type="password" id="pinConfirm" placeholder="Re-enter new PIN" maxlength="6">
+    </div>
+    <div id="pinChangeError" style="color:var(--red);font-size:12px;margin-bottom:8px;display:none"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('changePinModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveNewPin()">Update PIN</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+// ─── ROLE / AUTH ──────────────────────────────────────────────────────────────
+let currentRole = null;       // 'operator' | 'driver'
+let selectedLoginRole = null;
+let activeDriverId = null;    // for driver login: which driver they are
+let OPERATOR_PIN = '1313';
+
+function selectRole(role) {
+  selectedLoginRole = role;
+  document.getElementById('roleCardOperator').classList.toggle('selected', role === 'operator');
+  document.getElementById('roleCardDriver').classList.toggle('selected', role === 'driver');
+  document.getElementById('loginBtn').style.display = 'block';
+
+  if (role === 'operator') {
+    document.getElementById('pinRow').classList.add('visible');
+    document.getElementById('pinInput').focus();
+  } else {
+    document.getElementById('pinRow').classList.remove('visible');
+    document.getElementById('loginBtn').textContent = 'Enter as Driver →';
+  }
+}
+
+function doLogin() {
+  document.getElementById('loginError').style.display = 'none';
+  if (!selectedLoginRole) { return; }
+
+  if (selectedLoginRole === 'operator') {
+    const pin = document.getElementById('pinInput').value;
+    if (pin !== OPERATOR_PIN) {
+      document.getElementById('loginError').style.display = 'block';
+      document.getElementById('pinInput').value = '';
+      return;
+    }
+    applyRole('operator');
+  } else {
+    // Driver picks their name
+    if (!state.drivers.length) {
+      applyRole('driver');
+      return;
+    }
+    // Show driver picker
+    showDriverPicker();
+    return;
+  }
+}
+
+function showDriverPicker() {
+  const box = document.querySelector('.login-box');
+  box.innerHTML = `
+    <div class="login-logo">Route<span>Flow</span></div>
+    <div class="login-sub" style="margin-bottom:20px">Who are you?</div>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px;max-height:280px;overflow-y:auto">
+      ${state.drivers.map(d => `
+        <div onclick="selectDriverLogin(${d.id}, this)"
+          style="background:var(--surface2);border:2px solid var(--border);border-radius:10px;padding:12px 16px;cursor:pointer;display:flex;align-items:center;gap:12px;transition:all 0.2s"
+          onmouseover="this.style.borderColor='var(--accent)'" onmouseout="if(!this.classList.contains('sel'))this.style.borderColor='var(--border)'">
+          <div style="width:34px;height:34px;border-radius:50%;background:${d.color}22;color:${d.color};display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:15px;flex-shrink:0">${d.firstName[0]}${d.lastName[0]}</div>
+          <div>
+            <div style="font-weight:600">${d.firstName} ${d.lastName}</div>
+            <div style="font-size:11px;color:var(--muted)">${d.driverId || ''} · ${d.license}</div>
+          </div>
+        </div>`).join('')}
+    </div>
+    <button class="btn btn-primary btn-full" id="driverLoginBtn" onclick="confirmDriverLogin()" style="display:none">Enter →</button>
+    <button class="btn btn-ghost btn-full" onclick="location.reload()" style="margin-top:8px;font-size:12px">← Back</button>
+  `;
+}
+
+function showDriverPicker() {
+  const box = document.querySelector('.login-box');
+  box.innerHTML = `
+    <div class="login-logo">Route<span>Flow</span></div>
+    <div class="login-sub" style="margin-bottom:20px">Who are you?</div>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px;max-height:260px;overflow-y:auto;padding-right:2px">
+      ${state.drivers.map(d => {
+        const pinSet = d.pin !== null;
+        const showBadge = currentRole === 'operator';
+        return `<div onclick="selectDriverLogin(${d.id}, this)"
+          style="background:var(--surface2);border:2px solid var(--border);border-radius:10px;padding:12px 16px;cursor:pointer;display:flex;align-items:center;gap:12px;transition:all 0.2s"
+          onmouseover="this.style.borderColor='var(--accent)'" onmouseout="if(!this.classList.contains('sel'))this.style.borderColor='var(--border)'">
+          <div style="width:34px;height:34px;border-radius:50%;background:${d.color}22;color:${d.color};display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:15px;flex-shrink:0">${d.firstName[0]}${d.lastName[0]}</div>
+          <div style="flex:1">
+            <div style="font-weight:600">${d.firstName} ${d.lastName}</div>
+            <div style="font-size:11px;color:var(--muted)">${d.driverId || ''} · ${d.license}</div>
+          </div>
+          ${currentRole === 'operator' ? `<div style="font-size:10px;color:${pinSet ? 'var(--green)' : 'var(--accent)'};font-weight:600;text-transform:uppercase;letter-spacing:0.5px">${pinSet ? '🔒 PIN set' : '🔑 New'}</div>` : ''}
+        </div>`;
+      }).join('')}
+    </div>
+    <button class="btn btn-primary btn-full" id="driverLoginBtn" onclick="showDriverPinStep()" style="display:none">Continue →</button>
+    <button class="btn btn-ghost btn-full" onclick="switchRole()" style="margin-top:8px;font-size:12px">← Back</button>
+  `;
+}
+
+let tempDriverId = null;
+function selectDriverLogin(id, el) {
+  tempDriverId = id;
+  document.querySelectorAll('.login-box [onclick^="selectDriverLogin"]').forEach(e => {
+    e.style.borderColor = 'var(--border)'; e.classList.remove('sel');
+  });
+  el.style.borderColor = 'var(--accent)'; el.classList.add('sel');
+  document.getElementById('driverLoginBtn').style.display = 'block';
+}
+
+function showDriverPinStep() {
+  if (!tempDriverId) return;
+  const driver = state.drivers.find(d => d.id === tempDriverId);
+  if (!driver) return;
+  const isFirstTime = driver.pin === null;
+  const box = document.querySelector('.login-box');
+  box.innerHTML = `
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+      <div style="width:44px;height:44px;border-radius:50%;background:${driver.color}22;color:${driver.color};display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:20px;flex-shrink:0">${driver.firstName[0]}${driver.lastName[0]}</div>
+      <div>
+        <div style="font-weight:700;font-size:15px">${driver.firstName} ${driver.lastName}</div>
+        <div style="font-size:11px;color:var(--muted)">${driver.driverId || ''} · ${driver.license}</div>
+      </div>
+    </div>
+    ${isFirstTime ? `
+      <div style="background:rgba(240,165,0,0.1);border:1px solid rgba(240,165,0,0.3);border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:var(--accent)">
+        👋 First time? Set up your personal PIN below.
+      </div>
+      <div class="form-group" style="margin-bottom:12px">
+        <label style="display:block;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px">Create PIN</label>
+        <input type="password" id="dPinA" placeholder="Choose a PIN (4–6 digits)" maxlength="6" style="background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:8px 12px;font-family:var(--font-body);font-size:13px;width:100%;outline:none" onkeydown="if(event.key==='Enter')document.getElementById('dPinB').focus()">
+      </div>
+      <div class="form-group" style="margin-bottom:16px">
+        <label style="display:block;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px">Confirm PIN</label>
+        <input type="password" id="dPinB" placeholder="Re-enter PIN" maxlength="6" style="background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:8px 12px;font-family:var(--font-body);font-size:13px;width:100%;outline:none" onkeydown="if(event.key==='Enter')confirmDriverLogin()">
+      </div>
+      <div id="dPinError" style="color:var(--red);font-size:12px;margin-bottom:8px;display:none"></div>
+      <button class="btn btn-primary btn-full" onclick="confirmDriverLogin()">Set PIN & Enter →</button>
+    ` : `
+      <div class="form-group" style="margin-bottom:16px">
+        <label style="display:block;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px">Enter your PIN</label>
+        <input type="password" id="dPinA" placeholder="Enter PIN" maxlength="6" style="background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:8px 12px;font-family:var(--font-body);font-size:13px;width:100%;outline:none" onkeydown="if(event.key==='Enter')confirmDriverLogin()" autofocus>
+      </div>
+      <div id="dPinError" style="color:var(--red);font-size:12px;margin-bottom:8px;display:none"></div>
+      <button class="btn btn-primary btn-full" onclick="confirmDriverLogin()">Enter →</button>
+    `}
+    <button class="btn btn-ghost btn-full" onclick="showDriverPicker()" style="margin-top:8px;font-size:12px">← Back</button>
+  `;
+  setTimeout(() => { const el = document.getElementById('dPinA'); if (el) el.focus(); }, 50);
+}
+
+function confirmDriverLogin() {
+  const driver = state.drivers.find(d => d.id === tempDriverId);
+  if (!driver) return;
+  const errEl = document.getElementById('dPinError');
+  const pinA = document.getElementById('dPinA').value;
+
+  if (driver.pin === null) {
+    // First-time setup
+    const pinB = document.getElementById('dPinB').value;
+    if (!pinA || pinA.length < 4) {
+      errEl.textContent = 'PIN must be at least 4 digits.'; errEl.style.display = 'block'; return;
+    }
+    if (pinA !== pinB) {
+      errEl.textContent = 'PINs do not match.'; errEl.style.display = 'block'; return;
+    }
+    driver.pin = pinA;
+    toast(`✓ PIN set for ${driver.firstName}`);
+  } else {
+    // Verify existing PIN
+    if (pinA !== driver.pin) {
+      errEl.textContent = 'Incorrect PIN. Try again.'; errEl.style.display = 'block';
+      document.getElementById('dPinA').value = '';
+      return;
+    }
+  }
+  activeDriverId = tempDriverId;
+  applyRole('driver');
+}
+
+function applyRole(role) {
+  currentRole = role;
+  document.getElementById('loginScreen').classList.add('hidden');
+  document.body.classList.remove('role-operator', 'role-driver');
+  document.body.classList.add('role-' + role);
+
+  // Show correct change-PIN button
+  const driverPinBtn = document.getElementById('driverChangePinBtn');
+  if (driverPinBtn) driverPinBtn.style.display = role === 'driver' ? 'inline-flex' : 'none';
+  const driversTab = document.querySelector('.nav-tab[onclick="showTab(\'drivers\')"]');
+  if (driversTab) driversTab.style.display = role === 'operator' ? '' : 'none';
+
+  // Update topbar badge
+  const dot = document.getElementById('roleDot');
+  const label = document.getElementById('roleLabel');
+  if (role === 'operator') {
+    dot.style.background = 'var(--accent)';
+    label.textContent = 'Operator';
+  } else {
+    const driver = state.drivers.find(d => d.id === activeDriverId);
+    dot.style.background = driver ? driver.color : 'var(--blue)';
+    label.textContent = driver ? `${driver.firstName} ${driver.lastName}` : 'Driver';
+  }
+
+  // If on drivers tab and switching to driver, go to shift
+  if (role === 'driver') {
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+    document.getElementById('tab-schedule').classList.add('active');
+    document.querySelector('.nav-tab[onclick="showTab(\'schedule\')"]').classList.add('active');
+  }
+
+  renderAll();
+}
+
+function switchRole() {
+  // Reset and show login
+  currentRole = null; activeDriverId = null; selectedLoginRole = null; tempDriverId = null;
+  document.body.classList.remove('role-operator','role-driver');
+
+  // Rebuild login box in case it was replaced by driver picker
+  const screen = document.getElementById('loginScreen');
+  screen.innerHTML = `<div class="login-box">
+    <div class="login-logo">Route<span>Flow</span></div>
+    <div class="login-sub">Driver Scheduling Platform</div>
+    <div class="role-cards">
+      <div class="role-card" id="roleCardOperator" onclick="selectRole('operator')">
+        <div class="role-icon">🛠️</div>
+        <div class="role-name">Operator</div>
+        <div class="role-desc">Full access — manage routes, drivers & approvals</div>
+      </div>
+      <div class="role-card" id="roleCardDriver" onclick="selectRole('driver')">
+        <div class="role-icon">🚐</div>
+        <div class="role-name">Driver</div>
+        <div class="role-desc">View schedules & submit day-off requests</div>
+      </div>
+    </div>
+    <div class="pin-row" id="pinRow">
+      <label style="display:block;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;text-align:left">Operator PIN</label>
+      <input type="password" id="pinInput" placeholder="Enter PIN" maxlength="6" style="margin-bottom:12px" onkeydown="if(event.key==='Enter')doLogin()">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:12px">(Default PIN: <span style="font-family:var(--font-mono);color:var(--accent)">1234</span>)</div>
+    </div>
+    <button class="btn btn-primary btn-full" id="loginBtn" onclick="doLogin()" style="display:none">Enter →</button>
+    <div id="loginError" style="color:var(--red);font-size:12px;margin-top:10px;display:none">Incorrect PIN. Try again.</div>
+  </div>`;
+  screen.classList.remove('hidden');
+}
+
+// ─── STATE ───────────────────────────────────────────────────────────────────
+let state = {
+  drivers: [
+    { id: 1, firstName: 'Marcus', lastName: 'Lee', license: 'Class A', exp: 8, maxRoutes: 2, caps: ['standard','heavy'], color: '#e05c2a', routesThisWeek: 4, lastAssigned: null, pin: null },
+    { id: 2, firstName: 'Sarah', lastName: 'Novak', license: 'Class B', exp: 5, maxRoutes: 1, caps: ['standard','refrigerated'], color: '#4a9eff', routesThisWeek: 3, lastAssigned: null, pin: null },
+    { id: 3, firstName: 'Diego', lastName: 'Ruiz', license: 'Class C', exp: 2, maxRoutes: 1, caps: ['standard'], color: '#2ecc8a', routesThisWeek: 5, lastAssigned: null, pin: null },
+    { id: 4, firstName: 'Priya', lastName: 'Shah', license: 'Class A', exp: 10, maxRoutes: 2, caps: ['standard','heavy','hazmat'], color: '#9b59b6', routesThisWeek: 2, lastAssigned: null, pin: null },
+    { id: 5, firstName: 'Tom', lastName: 'Walsh', license: 'Class B', exp: 4, maxRoutes: 1, caps: ['standard','refrigerated'], color: '#1abc9c', routesThisWeek: 6, lastAssigned: null, pin: null },
+  ],
+  routes: [],
+  assignments: {},
+  dayoffs: [],
+  pdfFiles: { qrcodes: [], manifestdocs: [] },
+  nextDriverId: 6,
+  nextRouteId: 1,
+  currentWeekOffset: 0,
+};
+
+let assigningRouteId = null;
+const TODAY = new Date();
+TODAY.setHours(0,0,0,0);
+
+function todayStr() { return formatDate(TODAY); }
+
+function formatDate(d) {
+  return d.toISOString().split('T')[0];
+}
+
+function parseDate(s) {
+  const d = new Date(s + 'T00:00:00');
+  return d;
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+window.onload = () => {
+  document.getElementById('currentDate').textContent = TODAY.toLocaleDateString('en-CA', { weekday:'short', month:'short', day:'numeric', year:'numeric' });
+  document.getElementById('routeDate').value = todayStr();
+  addSeedData();
+  fetchWeather();
+  renderAll();
+};
+
+function addSeedData() {
+  const seeds = [
+    { num:'12', area:'North Highlands', stops:24, diff:'easy', cap:'standard' },
+    { num:'07', area:'Riverfront District', stops:18, diff:'medium', cap:'refrigerated' },
+    { num:'31', area:'Industrial Park', stops:15, diff:'hard', cap:'heavy' },
+  ];
+  seeds.forEach(s => {
+    state.routes.push({
+      id: state.nextRouteId++,
+      num: s.num,
+      area: s.area,
+      date: todayStr(),
+      stops: s.stops,
+      diff: s.diff,
+      cap: s.cap,
+    });
+  });
+  // Auto-assign seeds
+  state.routes.forEach(r => autoAssignRoute(r, false));
+}
+
+// ─── TABS ─────────────────────────────────────────────────────────────────────
+function showTab(name) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  event.target.classList.add('active');
+  if (name === 'manifest') renderManifestTab();
+  if (name === 'dayoff') {
+    // populate driver dropdown fresh
+    const sel = document.getElementById('calDriverSelect');
+    if (sel) {
+      if (currentRole === 'driver' && activeDriverId) {
+        // Driver only sees themselves
+        const d = state.drivers.find(d => d.id === activeDriverId);
+        sel.innerHTML = d ? `<option value="${d.id}">${d.firstName} ${d.lastName}</option>` : '';
+        sel.disabled = true;
+      } else {
+        sel.innerHTML = state.drivers.map(d => `<option value="${d.id}">${d.firstName} ${d.lastName}</option>`).join('');
+        sel.disabled = false;
+      }
+      sel.dataset.populated = '1';
+    }
+    renderDriverCalendar();
+    renderOperatorCalendar();
+    renderDayoffs();
+  }
+  renderAll();
+}
+
+// ─── RENDER ALL ───────────────────────────────────────────────────────────────
+function renderAll() {
+  renderDriverList();
+  renderScheduleGrid();
+  renderTodayAssignments();
+  renderDriversTable();
+  renderRotation();
+  renderDayoffs();
+  renderStats();
+  renderShiftSummary();
+  renderMyDayoffStatus();
+  renderAnnouncements();
+}
+
+// ─── MANIFEST / PDF ───────────────────────────────────────────────────────────
+let nextPdfId = 1;
+
+function handlePdfUpload(event, section) {
+  const files = Array.from(event.target.files);
+  files.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      state.pdfFiles[section].push({
+        id: nextPdfId++,
+        name: file.name,
+        size: file.size,
+        dataUrl: e.target.result,
+        uploadedAt: new Date().toLocaleString('en-CA', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' }),
+      });
+      renderManifestTab();
+      toast(`✓ "${file.name}" uploaded`);
+    };
+    reader.readAsDataURL(file);
+  });
+  event.target.value = '';
+}
+
+function deletePdf(section, id) {
+  state.pdfFiles[section] = state.pdfFiles[section].filter(f => f.id !== id);
+  renderManifestTab();
+  toast('File removed');
+}
+
+function renderManifestTab() {
+  renderPdfSection('qrcodes');
+  renderPdfSection('manifestdocs');
+}
+
+function renderPdfSection(section) {
+  const files = state.pdfFiles[section];
+  const listEl = document.getElementById(section + 'Files');
+  const emptyEl = document.getElementById(section + 'Empty');
+  if (!listEl) return;
+
+  if (!files.length) {
+    listEl.innerHTML = '';
+    emptyEl.style.display = 'block';
+    return;
+  }
+
+  emptyEl.style.display = 'none';
+  listEl.innerHTML = files.map(f => {
+    const sizeStr = f.size > 1024*1024 ? (f.size/1024/1024).toFixed(1)+' MB' : (f.size/1024).toFixed(0)+' KB';
+    return `<div class="pdf-item">
+      <div class="pdf-icon">📕</div>
+      <div class="pdf-info">
+        <div class="pdf-name">${f.name}</div>
+        <div class="pdf-meta">${sizeStr} · Uploaded ${f.uploadedAt}</div>
+      </div>
+      <div class="pdf-actions">
+        <a href="${f.dataUrl}" target="_blank" class="btn btn-ghost btn-sm">👁 View</a>
+        <a href="${f.dataUrl}" download="${f.name}" class="btn btn-primary btn-sm">⬇ Download</a>
+        ${currentRole === 'operator' ? `<button class="btn btn-danger btn-sm" onclick="deletePdf('${section}', ${f.id})">✕</button>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ─── STATS ────────────────────────────────────────────────────────────────────
+function renderStats() { /* Today's Status removed */ }
+
+// ─── DRIVER LIST (SIDEBAR) ─────────────────────────────────────────────────────
+function renderDriverList() {
+  const el = document.getElementById('driverList');
+  if (!el) return; // element removed from DOM
+  const t = todayStr();
+  el.innerHTML = state.drivers.map(d => {
+    const isOff = isDriverOff(d.id, t);
+    const assignedRouteToday = getAssignedRoutesToday(d.id, t);
+    let statusClass = 'status-available';
+    let statusLabel = '<span class="badge badge-green">Available</span>';
+    if (isOff) { statusClass = 'status-off'; statusLabel = '<span class="badge badge-red">Day Off</span>'; }
+    else if (assignedRouteToday.length > 0) { statusClass = 'status-assigned'; statusLabel = '<span class="badge badge-amber">Assigned</span>'; }
+    return `<div class="driver-card" onclick="viewDriver(${d.id})">
+      <div class="driver-avatar" style="background:${d.color}22;color:${d.color}">${d.firstName[0]}${d.lastName[0]}</div>
+      <div class="driver-info">
+        <div class="driver-name">${d.firstName} ${d.lastName}</div>
+        <div class="driver-meta">${d.driverId || ''} · ${d.license} · ${(d.areas||d.caps||[]).join(', ')}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+        <div class="status-dot ${statusClass}"></div>
+        ${statusLabel}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ─── SCHEDULE GRID ────────────────────────────────────────────────────────────
+function renderScheduleGrid() {
+  const weekStart = new Date(TODAY);
+  weekStart.setDate(TODAY.getDate() - TODAY.getDay() + (state.currentWeekOffset * 7));
+
+  const days = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(weekStart);
+    d.setDate(weekStart.getDate() + i);
+    days.push(d);
+  }
+
+  document.getElementById('weekLabel').textContent = `${days[0].toLocaleDateString('en-CA',{month:'short',day:'numeric'})} – ${days[6].toLocaleDateString('en-CA',{month:'short',day:'numeric',year:'numeric'})}`;
+
+  const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  let html = '';
+
+  days.forEach((d, i) => {
+    const isToday = formatDate(d) === todayStr();
+    const ds = formatDate(d);
+
+    html += `<div class="day-col"><div class="day-header ${isToday ? 'today' : ''}">${dayNames[i]}<br><span style="font-size:14px;font-family:var(--font-mono)">${d.getDate()}</span></div>`;
+
+    if (currentRole === 'operator') {
+      // Operator: show total route count, click to open day popup
+      const dayRoutes = state.routes.filter(r => r.date === ds);
+      const count = dayRoutes.length;
+      const unassigned = dayRoutes.filter(r => !state.assignments[r.id + '_' + ds]).length;
+      html += `<div class="schedule-cell ${isToday ? 'today' : ''}"
+        onclick="openDayShiftsModal('${ds}')"
+        style="cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-height:72px">
+        ${count > 0
+          ? `<div style="font-family:var(--font-display);font-size:28px;color:${isToday ? 'var(--accent)' : 'var(--text)'};line-height:1">${count}</div>
+             ${unassigned > 0 ? `<div style="font-size:9px;color:var(--red);margin-top:4px">⚠ ${unassigned} unassigned</div>` : ''}`
+          : `<div style="font-size:11px;color:var(--border)">—</div>`
+        }
+      </div></div>`;
+    } else {
+      // Driver: show only their own shifts
+      let dayRoutes = state.routes.filter(r => r.date === ds);
+      if (activeDriverId) {
+        dayRoutes = dayRoutes.filter(r => state.assignments[r.id + '_' + ds] === activeDriverId);
+      }
+      const offToday = state.dayoffs.filter(doff => doff.status === 'approved' && doff.from <= ds && doff.to >= ds);
+
+      let cellHtml = `<div class="schedule-cell ${isToday ? 'today' : ''}">`;
+      dayRoutes.forEach(r => {
+        cellHtml += `<div class="cell-route"><strong>43${r.num}</strong><br>${r.area.split(' ')[0]}</div>`;
+      });
+      if (activeDriverId) {
+        const myOff = offToday.find(doff => doff.driverId === activeDriverId);
+        if (myOff) cellHtml += `<div class="cell-off">🚫 Day Off</div>`;
+      }
+      cellHtml += '</div>';
+      html += cellHtml + '</div>';
+    }
+  });
+
+  document.getElementById('scheduleGrid').innerHTML = html;
+}
+
+function changeWeek(dir) {
+  state.currentWeekOffset += dir;
+  renderScheduleGrid();
+}
+
+// ─── TODAY ASSIGNMENTS ────────────────────────────────────────────────────────
+function renderTodayAssignments() {
+  const t = todayStr();
+  const todayRoutes = state.routes.filter(r => r.date === t);
+  const el = document.getElementById('todayAssignments');
+
+  if (!todayRoutes.length) {
+    el.innerHTML = `<div class="empty-state"><div class="icon">📋</div><p>${currentRole === 'operator' ? 'No routes for today. Add some using the form on the left.' : 'No routes scheduled for today.'}</p></div>`;
+    return;
+  }
+
+  if (currentRole === 'operator') {
+    // OPERATOR: full management view
+    el.innerHTML = todayRoutes.map(r => {
+      const key = r.id + '_' + t;
+      const driverId = state.assignments[key];
+      const driver = driverId ? state.drivers.find(d => d.id === driverId) : null;
+      return `<div class="route-card">
+        <div class="route-number">43${r.num}</div>
+        <div>
+          <div class="route-area">${r.area}</div>
+        </div>
+        <div class="assigned-driver">
+          ${driver
+            ? `<strong style="color:${driver.color}">${driver.firstName} ${driver.lastName}</strong>`
+            : `<strong style="color:var(--red)">Unassigned</strong>`
+          }
+        </div>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-ghost btn-sm" onclick="openAssign(${r.id})">✎ Assign</button>
+          <button class="btn btn-danger btn-sm" onclick="removeRoute(${r.id})">✕</button>
+        </div>
+      </div>`;
+    }).join('');
+  } else {
+    // DRIVER: clean read-only list — 43xx · Area · Driver Name
+    el.innerHTML = `
+      <div style="display:flex;flex-direction:column;gap:8px">
+        ${todayRoutes.map(r => {
+          const key = r.id + '_' + t;
+          const driverId = state.assignments[key];
+          const driver = driverId ? state.drivers.find(d => d.id === driverId) : null;
+          const isMe = driver && driver.id === activeDriverId;
+          return `<div style="
+            background:${isMe ? 'rgba(240,165,0,0.07)' : 'var(--bg)'};
+            border:1px solid ${isMe ? 'rgba(240,165,0,0.4)' : 'var(--border)'};
+            border-radius:10px;
+            padding:14px 20px;
+            display:flex;
+            align-items:center;
+            gap:20px;
+          ">
+            <div style="font-family:var(--font-mono);font-size:22px;font-weight:700;color:var(--accent);min-width:64px;letter-spacing:1px">43${r.num}</div>
+            <div style="flex:1;font-size:14px;font-weight:500">${r.area}</div>
+            <div style="display:flex;align-items:center;gap:10px">
+              ${driver
+                ? `<div style="width:30px;height:30px;border-radius:50%;background:${driver.color}22;color:${driver.color};display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:13px;flex-shrink:0">${driver.firstName[0]}${driver.lastName[0]}</div>
+                   <span style="font-size:13px;font-weight:600;color:${isMe ? 'var(--accent)' : 'var(--text)'}">${driver.firstName} ${driver.lastName}${isMe ? ' (You)' : ''}</span>`
+                : `<span style="font-size:13px;color:var(--muted)">Unassigned</span>`
+              }
+            </div>
+          </div>`;
+        }).join('')}
+      </div>`;
+  }
+}
+
+// ─── DRIVERS TABLE ────────────────────────────────────────────────────────────
+function renderDriversTable() {
+  const t = todayStr();
+  const el = document.getElementById('driversTable');
+  el.innerHTML = state.drivers.map(d => {
+    const isOff = isDriverOff(d.id, t);
+    const assigned = getAssignedRoutesToday(d.id, t);
+    const totalRoutes = Object.entries(state.assignments).filter(([k,v]) => v === d.id).length;
+    return `<div class="route-card" style="grid-template-columns:40px 1fr auto auto auto;gap:12px">
+      <div class="driver-avatar" style="background:${d.color}22;color:${d.color};width:36px;height:36px;font-size:14px">${d.firstName[0]}${d.lastName[0]}</div>
+      <div>
+        <div style="font-weight:600">${d.firstName} ${d.lastName}</div>
+        <div style="font-size:11px;color:var(--muted)">${d.driverId || ''} · ${d.license} · ${(d.areas||d.caps||[]).join(', ')}</div>
+      </div>
+      <div style="text-align:center">
+        <div style="font-family:var(--font-mono);font-size:18px;color:var(--accent)">${totalRoutes}</div>
+        <div style="font-size:10px;color:var(--muted)">Total Routes</div>
+      </div>
+      <div style="text-align:center">
+        ${isOff ? '<span class="badge badge-red">Day Off</span>' : assigned.length > 0 ? '<span class="badge badge-amber">Assigned</span>' : '<span class="badge badge-green">Available</span>'}
+      </div>
+      <div style="display:flex;gap:6px;align-items:center">
+        ${currentRole === 'operator' ? `
+          <button class="btn btn-ghost btn-sm" onclick="openSetDriverPin(${d.id})" style="font-size:11px" title="${d.pin !== null ? 'Reset PIN' : 'Set PIN'}">
+            ${d.pin !== null ? '🔒' : '🔑 New'}
+          </button>
+          <button class="btn btn-danger btn-sm" onclick="removeDriver(${d.id})">✕</button>
+        ` : ''}
+      </div>
+    </div>`;
+  }).join('') || '<div class="empty-state"><div class="icon">👤</div><p>No drivers yet</p></div>';
+}
+
+// ─── ROTATION ────────────────────────────────────────────────────────────────
+function renderRotation() {
+  // Sort by routesThisWeek ascending (less assigned = higher rotation priority)
+  const sorted = [...state.drivers].sort((a, b) => {
+    const aRoutes = Object.entries(state.assignments).filter(([k,v]) => v === a.id).length;
+    const bRoutes = Object.entries(state.assignments).filter(([k,v]) => v === b.id).length;
+    return aRoutes - bRoutes;
+  });
+
+  document.getElementById('rotationList').innerHTML = sorted.map((d, i) => {
+    const totalRoutes = Object.entries(state.assignments).filter(([k,v]) => v === d.id).length;
+    return `<div class="rotation-bar">
+      <div class="rotation-pos">#${i+1}</div>
+      <div class="driver-avatar" style="background:${d.color}22;color:${d.color};width:28px;height:28px;font-size:12px;flex-shrink:0">${d.firstName[0]}${d.lastName[0]}</div>
+      <div class="rotation-name">${d.firstName} ${d.lastName}</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <div style="font-size:11px;color:var(--muted)">${totalRoutes} routes total</div>
+        ${totalRoutes === Math.min(...state.drivers.map(x => Object.entries(state.assignments).filter(([k,v]) => v === x.id).length))
+          ? '<span class="badge badge-green">Next Up</span>' : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ─── ROUTES LIST ─────────────────────────────────────────────────────────────
+function renderRoutes() {
+  const filterDate = document.getElementById('filterDate').value;
+  const routes = filterDate ? state.routes.filter(r => r.date === filterDate) : state.routes;
+  const el = document.getElementById('routesList');
+
+  if (!routes.length) {
+    el.innerHTML = '<div class="empty-state"><div class="icon">🗺️</div><p>No routes found</p></div>';
+    return;
+  }
+
+  const byDate = {};
+  routes.forEach(r => {
+    if (!byDate[r.date]) byDate[r.date] = [];
+    byDate[r.date].push(r);
+  });
+
+  let html = '';
+  Object.keys(byDate).sort().reverse().forEach(date => {
+    const d = parseDate(date);
+    html += `<div style="font-family:var(--font-mono);font-size:12px;color:var(--muted);margin:12px 0 6px;text-transform:uppercase;letter-spacing:1px">${d.toLocaleDateString('en-CA',{weekday:'long',month:'long',day:'numeric'})}</div>`;
+    html += byDate[date].map(r => {
+      const key = r.id + '_' + r.date;
+      const driverId = state.assignments[key];
+      const driver = driverId ? state.drivers.find(d => d.id === driverId) : null;
+      const diffColors = { easy: 'green', medium: 'amber', hard: 'red' };
+      return `<div class="route-card">
+        <div class="route-number">R${r.num}</div>
+        <div>
+          <div class="route-area">${r.area}</div>
+          <div class="route-sub">${r.stops} stops · ${r.cap} · <span class="badge badge-${diffColors[r.diff]}">${r.diff}</span></div>
+        </div>
+        <div class="assigned-driver">
+          ${driver ? `<strong style="color:${driver.color}">${driver.firstName} ${driver.lastName}</strong><span>${driver.license}</span>` : '<strong style="color:var(--red)">Unassigned</strong>'}
+        </div>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-ghost btn-sm" onclick="openAssign(${r.id})">✎</button>
+          <button class="btn btn-danger btn-sm" onclick="removeRoute(${r.id})">✕</button>
+        </div>
+      </div>`;
+    }).join('');
+  });
+  el.innerHTML = html;
+}
+
+// ─── DAYOFFS ─────────────────────────────────────────────────────────────────
+function renderDayoffs() {
+  const el = document.getElementById('dayoffList');
+  if (!state.dayoffs.length) {
+    el.innerHTML = '<div class="empty-state"><div class="icon">🗓️</div><p>No day-off requests yet</p></div>';
+    return;
+  }
+  el.innerHTML = [...state.dayoffs].reverse().map(doff => {
+    const driver = state.drivers.find(d => d.id === doff.driverId);
+    if (!driver) return '';
+    const statusColors = { pending: 'amber', approved: 'green', denied: 'red' };
+    return `<div class="route-card" style="grid-template-columns:40px 1fr auto auto auto;gap:12px">
+      <div class="driver-avatar" style="background:${driver.color}22;color:${driver.color};width:36px;height:36px;font-size:14px">${driver.firstName[0]}${driver.lastName[0]}</div>
+      <div>
+        <div style="font-weight:600">${driver.firstName} ${driver.lastName}</div>
+        <div style="font-size:11px;color:var(--muted)">${doff.from} → ${doff.to} · ${doff.reason || 'No reason given'}</div>
+      </div>
+      <div><span class="badge badge-${statusColors[doff.status]}">${doff.status}</span></div>
+      <div style="display:flex;gap:6px">
+        ${doff.status === 'pending' ? `
+          <button class="btn btn-success btn-sm" onclick="updateDayoff(${doff.id},'approved')">✓ Approve</button>
+          <button class="btn btn-danger btn-sm" onclick="updateDayoff(${doff.id},'denied')">✕ Deny</button>
+        ` : ''}
+        <button class="btn btn-ghost btn-sm" onclick="removeDayoff(${doff.id})">🗑</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
+function isDriverOff(driverId, dateStr) {
+  return state.dayoffs.some(d => d.driverId === driverId && d.status === 'approved' && d.from <= dateStr && d.to >= dateStr);
+}
+
+function getAssignedRoutesToday(driverId, dateStr) {
+  return state.routes.filter(r => {
+    if (r.date !== dateStr) return false;
+    const key = r.id + '_' + dateStr;
+    return state.assignments[key] === driverId;
+  });
+}
+
+function getDriverLoad(driverId, dateStr) {
+  return getAssignedRoutesToday(driverId, dateStr).length;
+}
+
+// ─── AUTO-ASSIGN ─────────────────────────────────────────────────────────────
+function autoAssignRoute(route, showToast = true) {
+  const ds = route.date;
+  const key = route.id + '_' + ds;
+  if (state.assignments[key]) return; // already assigned
+
+  // Filter eligible drivers
+  let eligible = state.drivers.filter(d => {
+    if (isDriverOff(d.id, ds)) return false;
+    if (!d.caps.includes(route.cap) && route.cap !== 'standard') return false;
+    if (!d.caps.includes(route.cap)) return false;
+    if (getDriverLoad(d.id, ds) >= d.maxRoutes) return false;
+    // Hard routes need 3+ years exp
+    if (route.diff === 'hard' && d.exp < 3) return false;
+    return true;
+  });
+
+  if (!eligible.length) {
+    if (showToast) toast(`⚠ No eligible driver for Route ${route.num}`, 'warn');
+    return;
+  }
+
+  // Sort by: fewest total routes (rotation fairness), then fewest today
+  eligible.sort((a, b) => {
+    const aTot = Object.entries(state.assignments).filter(([k,v]) => v === a.id).length;
+    const bTot = Object.entries(state.assignments).filter(([k,v]) => v === b.id).length;
+    if (aTot !== bTot) return aTot - bTot;
+    return getDriverLoad(a.id, ds) - getDriverLoad(b.id, ds);
+  });
+
+  state.assignments[key] = eligible[0].id;
+  if (showToast) toast(`✓ Route ${route.num} assigned to ${eligible[0].firstName} ${eligible[0].lastName}`);
+}
+
+function autoAssignAll() {
+  const t = todayStr();
+  state.routes.filter(r => r.date === t).forEach(r => {
+    delete state.assignments[r.id + '_' + t]; // reset
+    autoAssignRoute(r, false);
+  });
+  toast('⚡ All routes re-assigned with fair rotation');
+  renderAll();
+}
+
+// ─── ADD ROUTE ────────────────────────────────────────────────────────────────
+function addRoute() {
+  const num = document.getElementById('routeNum').value.trim();
+  const area = document.getElementById('routeArea').value.trim();
+  const date = document.getElementById('routeDate').value;
+  const stops = 15;
+  const diff = 'medium';
+  const cap = 'standard';
+
+  if (!num || !area || !date) { toast('Fill in Route #, Area and Date', 'error'); return; }
+
+  const route = { id: state.nextRouteId++, num, area, date, stops, diff, cap };
+  state.routes.push(route);
+  autoAssignRoute(route);
+
+  document.getElementById('routeNum').value = '';
+  document.getElementById('routeArea').value = '';
+  renderAll();
+}
+
+function removeRoute(id) {
+  state.routes = state.routes.filter(r => r.id !== id);
+  Object.keys(state.assignments).forEach(k => { if (k.startsWith(id + '_')) delete state.assignments[k]; });
+  renderAll();
+}
+
+// ─── ASSIGN MODAL ─────────────────────────────────────────────────────────────
+function openAssign(routeId) {
+  assigningRouteId = routeId;
+  const route = state.routes.find(r => r.id === routeId);
+  document.getElementById('assignRouteInfo').innerHTML = `<strong>Route ${route.num}</strong> — ${route.area}<br><span style="color:var(--muted)">${route.stops} stops · ${route.diff} · ${route.cap}</span>`;
+  const sel = document.getElementById('assignDriverSelect');
+  sel.innerHTML = '<option value="">-- Unassign --</option>' + state.drivers.map(d => {
+    const isOff = isDriverOff(d.id, route.date);
+    const hasCap = d.caps.includes(route.cap);
+    return `<option value="${d.id}" ${isOff ? 'disabled' : ''} ${!hasCap ? 'disabled' : ''}>${d.firstName} ${d.lastName}${isOff ? ' (Day Off)' : !hasCap ? ' (No Cap)' : ''}</option>`;
+  }).join('');
+  const key = route.id + '_' + route.date;
+  if (state.assignments[key]) sel.value = state.assignments[key];
+  document.getElementById('assignModal').classList.remove('hidden');
+}
+
+function confirmAssign() {
+  const route = state.routes.find(r => r.id === assigningRouteId);
+  const key = route.id + '_' + route.date;
+  const val = document.getElementById('assignDriverSelect').value;
+  if (val) {
+    state.assignments[key] = parseInt(val);
+    const driver = state.drivers.find(d => d.id === parseInt(val));
+    toast(`✓ Route ${route.num} assigned to ${driver.firstName}`);
+  } else {
+    delete state.assignments[key];
+    toast('Route unassigned');
+  }
+  closeModal('assignModal');
+  renderAll();
+}
+
+// ─── DRIVER MODAL ─────────────────────────────────────────────────────────────
+function openAddDriver() {
+  document.getElementById('dFullName').value = '';
+  document.getElementById('dDriverId').value = '';
+  document.getElementById('dLicense').value = 'Class C';
+  document.getElementById('dAreas').value = '';
+  document.getElementById('addDriverModal').classList.remove('hidden');
+}
+
+function toggleCap(el) { el.classList.toggle('active'); }
+
+function saveDriver() {
+  const fullName = document.getElementById('dFullName').value.trim();
+  const driverId = document.getElementById('dDriverId').value.trim();
+  const areas = document.getElementById('dAreas').value.trim();
+  if (!fullName) { toast('Enter driver full name', 'error'); return; }
+  if (!driverId) { toast('Enter driver ID', 'error'); return; }
+  if (!areas) { toast('Enter at least one capable area', 'error'); return; }
+  const nameParts = fullName.split(' ');
+  const firstName = nameParts[0];
+  const lastName = nameParts.slice(1).join(' ') || '';
+  const colors = ['#e05c2a','#4a9eff','#2ecc8a','#9b59b6','#1abc9c','#e74c3c','#f39c12','#3498db'];
+  state.drivers.push({
+    id: state.nextDriverId++,
+    driverId,
+    firstName,
+    lastName,
+    license: document.getElementById('dLicense').value,
+    exp: 0,
+    maxRoutes: 1,
+    caps: ['standard'],
+    areas: areas.split(',').map(a => a.trim()).filter(Boolean),
+    color: colors[state.drivers.length % colors.length],
+    routesThisWeek: 0,
+    lastAssigned: null,
+    pin: null,
+  });
+  toast(`✓ ${fullName} added to roster`);
+  closeModal('addDriverModal');
+  renderAll();
+}
+
+function removeDriver(id) {
+  if (!confirm('Remove this driver?')) return;
+  state.drivers = state.drivers.filter(d => d.id !== id);
+  Object.keys(state.assignments).forEach(k => { if (state.assignments[k] === id) delete state.assignments[k]; });
+  renderAll();
+}
+
+// ─── DAY OFF CALENDAR ────────────────────────────────────────────────────────
+let nextDayoffId = 1;
+let calMonthOffset = 0;     // months relative to today
+let calSelectedDates = [];  // array of 'YYYY-MM-DD' strings
+
+function getCalYear() {
+  const d = new Date(TODAY.getFullYear(), TODAY.getMonth() + calMonthOffset, 1);
+  return d.getFullYear();
+}
+function getCalMonth() {
+  const d = new Date(TODAY.getFullYear(), TODAY.getMonth() + calMonthOffset, 1);
+  return d.getMonth();
+}
+
+function changeCalMonth(dir) {
+  calMonthOffset += dir;
+  calSelectedDates = [];
+  renderDriverCalendar();
+  renderOperatorCalendar();
+}
+
+function renderDriverCalendar() {
+  const sel = document.getElementById('calDriverSelect');
+  if (!sel) return;
+
+  // Populate driver selector if empty
+  if (!sel.options.length || sel.dataset.populated !== '1') {
+    sel.innerHTML = state.drivers.map(d => `<option value="${d.id}">${d.firstName} ${d.lastName}</option>`).join('');
+    sel.dataset.populated = '1';
+  }
+
+  const driverId = parseInt(sel.value);
+  const year = getCalYear();
+  const month = getCalMonth();
+
+  const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  document.getElementById('calMonthLabel').textContent = `${monthNames[month]} ${year}`;
+
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const todayStr2 = todayStr();
+
+  // Get this driver's dayoffs for this month
+  const driverDayoffs = state.dayoffs.filter(d => d.driverId === driverId);
+
+  let html = '';
+  // blank cells
+  for (let i = 0; i < firstDay; i++) {
+    html += `<div></div>`;
+  }
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    const isToday = dateStr === todayStr2;
+    const isPast = dateStr < todayStr2;
+    const isSelected = calSelectedDates.includes(dateStr);
+
+    // Check dayoff status
+    const doff = driverDayoffs.find(d => dateStr >= d.from && dateStr <= d.to);
+    const isRequested = doff && doff.status === 'pending';
+    const isApproved = doff && doff.status === 'approved';
+
+    let bg = 'transparent';
+    let border = '1px solid var(--border)';
+    let color = isPast ? 'var(--muted)' : 'var(--text)';
+    let cursor = isPast ? 'default' : 'pointer';
+
+    if (isApproved) { bg = 'rgba(46,204,138,0.2)'; border = '1px solid rgba(46,204,138,0.4)'; color = 'var(--green)'; }
+    else if (isRequested) { bg = 'rgba(224,67,90,0.25)'; border = '1px solid rgba(224,67,90,0.5)'; color = 'var(--red)'; }
+    else if (isSelected) { bg = 'rgba(107,114,128,0.25)'; border = '1px solid var(--muted)'; }
+
+    const todayRing = isToday ? ';outline:2px solid var(--accent);outline-offset:1px' : '';
+    const todayDot = isToday ? `<div style="width:4px;height:4px;border-radius:50%;background:var(--accent);margin:1px auto 0"></div>` : '';
+
+    html += `<div onclick="${isPast || isApproved || isRequested ? '' : `toggleCalDate('${dateStr}')`}"
+      style="text-align:center;padding:6px 2px;border-radius:6px;background:${bg};border:${border};color:${color};cursor:${cursor};font-size:12px;font-family:var(--font-mono);transition:all 0.15s${todayRing}">
+      ${day}${todayDot}
+    </div>`;
+  }
+
+  document.getElementById('calGrid').innerHTML = html;
+  renderCalSelectedInfo();
+}
+
+function toggleCalDate(dateStr) {
+  const idx = calSelectedDates.indexOf(dateStr);
+  if (idx === -1) calSelectedDates.push(dateStr);
+  else calSelectedDates.splice(idx, 1);
+  renderDriverCalendar();
+}
+
+function renderCalSelectedInfo() {
+  const infoEl = document.getElementById('calSelectedInfo');
+  const datesEl = document.getElementById('calSelectedDates');
+  if (!infoEl || !datesEl) return;
+
+  if (!calSelectedDates.length) {
+    infoEl.style.display = 'none';
+    return;
+  }
+
+  infoEl.style.display = 'block';
+  const sorted = [...calSelectedDates].sort();
+  datesEl.innerHTML = sorted.map(d => {
+    const dd = parseDate(d);
+    const label = dd.toLocaleDateString('en-CA', { month:'short', day:'numeric', weekday:'short' });
+    return `<div style="background:rgba(224,67,90,0.15);border:1px solid rgba(224,67,90,0.3);border-radius:20px;padding:3px 10px;font-size:11px;color:var(--red);display:flex;align-items:center;gap:6px">
+      ${label}
+      <span onclick="toggleCalDate('${d}')" style="cursor:pointer;opacity:0.7;font-size:10px">✕</span>
+    </div>`;
+  }).join('');
+}
+
+function submitCalDayOff() {
+  if (!calSelectedDates.length) { toast('Select at least one date', 'error'); return; }
+  const driverId = parseInt(document.getElementById('calDriverSelect').value);
+  const reason = document.getElementById('calReason').value.trim();
+  const driver = state.drivers.find(d => d.id === driverId);
+  const sorted = [...calSelectedDates].sort();
+
+  // Group consecutive dates into ranges
+  let ranges = [];
+  let rangeStart = sorted[0], rangeEnd = sorted[0];
+  for (let i = 1; i < sorted.length; i++) {
+    const prev = new Date(sorted[i-1] + 'T00:00:00');
+    const curr = new Date(sorted[i] + 'T00:00:00');
+    const diff = (curr - prev) / 86400000;
+    if (diff === 1) {
+      rangeEnd = sorted[i];
+    } else {
+      ranges.push({ from: rangeStart, to: rangeEnd });
+      rangeStart = sorted[i]; rangeEnd = sorted[i];
+    }
+  }
+  ranges.push({ from: rangeStart, to: rangeEnd });
+
+  ranges.forEach(r => {
+    state.dayoffs.push({ id: nextDayoffId++, driverId, from: r.from, to: r.to, reason, status: 'pending' });
+  });
+
+  toast(`📅 ${calSelectedDates.length} day(s) requested for ${driver.firstName}`);
+  calSelectedDates = [];
+  document.getElementById('calReason').value = '';
+  renderDriverCalendar();
+  renderOperatorCalendar();
+  renderDayoffs();
+}
+
+// ─── OPERATOR CALENDAR OVERVIEW ───────────────────────────────────────────────
+function renderOperatorCalendar() {
+  const year = getCalYear();
+  const month = getCalMonth();
+  const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+  const el = document.getElementById('opCalMonthLabel');
+  const gridEl = document.getElementById('opCalGrid');
+  if (!el || !gridEl) return;
+
+  el.textContent = `${monthNames[month]} ${year}`;
+
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const todayStr2 = todayStr();
+
+  let html = '';
+  for (let i = 0; i < firstDay; i++) html += `<div></div>`;
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    const isToday = dateStr === todayStr2;
+
+    // Find all dayoffs on this date
+    const dayoffsOnDate = state.dayoffs.filter(d => dateStr >= d.from && dateStr <= d.to);
+    const pendingCount = dayoffsOnDate.filter(d => d.status === 'pending').length;
+    const approvedCount = dayoffsOnDate.filter(d => d.status === 'approved').length;
+
+    let bg = 'transparent';
+    let border = '1px solid var(--border)';
+    let dotHtml = '';
+
+    if (approvedCount > 0) { bg = 'rgba(46,204,138,0.15)'; border = '1px solid rgba(46,204,138,0.3)'; }
+    if (pendingCount > 0) { bg = 'rgba(240,165,0,0.12)'; border = '1px solid rgba(240,165,0,0.35)'; }
+
+    if (dayoffsOnDate.length > 0) {
+      // Show driver avatars
+      const driversToShow = dayoffsOnDate.slice(0, 3);
+      dotHtml = `<div style="display:flex;justify-content:center;gap:1px;margin-top:2px;flex-wrap:wrap">` +
+        driversToShow.map(doff => {
+          const driver = state.drivers.find(d => d.id === doff.driverId);
+          if (!driver) return '';
+          const statusColor = doff.status === 'approved' ? 'var(--green)' : doff.status === 'denied' ? 'var(--red)' : 'var(--accent)';
+          return `<div style="width:6px;height:6px;border-radius:50%;background:${driver.color};border:1px solid ${statusColor}"></div>`;
+        }).join('') +
+        (dayoffsOnDate.length > 3 ? `<div style="font-size:8px;color:var(--muted)">+${dayoffsOnDate.length-3}</div>` : '') +
+        `</div>`;
+    }
+
+    const todayRing = isToday ? ';outline:2px solid var(--accent);outline-offset:1px' : '';
+
+    html += `<div title="${dateStr}" style="text-align:center;padding:5px 2px;border-radius:5px;background:${bg};border:${border};font-size:11px;font-family:var(--font-mono);color:${isToday ? 'var(--accent)' : 'var(--text)'}${todayRing}">
+      ${day}${dotHtml}
+    </div>`;
+  }
+
+  gridEl.innerHTML = html;
+}
+
+function openDayOff() {
+  // Legacy - not used anymore but kept for safety
+}
+
+function saveDayOff() {}
+
+function updateDayoff(id, status) {
+  const doff = state.dayoffs.find(d => d.id === id);
+  doff.status = status;
+  if (status === 'approved') {
+    state.routes.forEach(r => {
+      if (r.date >= doff.from && r.date <= doff.to) {
+        const key = r.id + '_' + r.date;
+        if (state.assignments[key] === doff.driverId) {
+          delete state.assignments[key];
+          autoAssignRoute(r, false);
+        }
+      }
+    });
+    toast('✓ Day off approved & assignments re-allocated');
+  } else {
+    toast('Request denied');
+  }
+  renderDayoffs();
+  renderDriverCalendar();
+  renderOperatorCalendar();
+  renderAll();
+}
+
+function removeDayoff(id) {
+  state.dayoffs = state.dayoffs.filter(d => d.id !== id);
+  renderDayoffs();
+  renderDriverCalendar();
+  renderOperatorCalendar();
+}
+
+function renderDayoffs() {
+  const el = document.getElementById('dayoffList');
+  if (!el) return;
+  const pending = state.dayoffs.filter(d => d.status === 'pending');
+  if (!pending.length) {
+    el.innerHTML = '<div class="empty-state" style="padding:20px"><div class="icon" style="font-size:24px">✅</div><p>No pending requests</p></div>';
+    return;
+  }
+  const isOp = currentRole === 'operator';
+  el.innerHTML = [...pending].reverse().map(doff => {
+    const driver = state.drivers.find(d => d.id === doff.driverId);
+    if (!driver) return '';
+    const from = parseDate(doff.from).toLocaleDateString('en-CA', { month:'short', day:'numeric' });
+    const to = doff.from === doff.to ? '' : ` → ${parseDate(doff.to).toLocaleDateString('en-CA', { month:'short', day:'numeric' })}`;
+    return `<div class="route-card" style="grid-template-columns:36px 1fr auto${isOp ? ' auto' : ''};gap:10px;margin-bottom:8px">
+      <div class="driver-avatar" style="background:${driver.color}22;color:${driver.color};width:32px;height:32px;font-size:12px;flex-shrink:0">${driver.firstName[0]}${driver.lastName[0]}</div>
+      <div>
+        <div style="font-weight:600;font-size:13px">${driver.firstName} ${driver.lastName}</div>
+        <div style="font-size:11px;color:var(--muted)">${from}${to}${doff.reason ? ' · '+doff.reason : ''}</div>
+      </div>
+      <span class="badge badge-amber">Pending</span>
+      ${isOp ? `
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-success btn-sm" onclick="updateDayoff(${doff.id},'approved')">✓</button>
+          <button class="btn btn-danger btn-sm" onclick="updateDayoff(${doff.id},'denied')">✕</button>
+        </div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+// ─── WEATHER ──────────────────────────────────────────────────────────────────
+async function fetchWeather() {
+  if (!navigator.geolocation) {
+    document.getElementById('weatherLoading').textContent = 'Location not supported';
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(
+    async (pos) => {
+      const lat = pos.coords.latitude;
+      const lon = pos.coords.longitude;
+      try {
+        // Reverse geocode for city name
+        const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`);
+        const geoData = await geoRes.json();
+        const city = geoData.address.city || geoData.address.town || geoData.address.village || geoData.address.county || 'Your Location';
+        const region = geoData.address.state_code || geoData.address.state || '';
+        document.getElementById('weatherLocation').textContent = region ? `${city}, ${region}` : city;
+
+        // Fetch weather
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weathercode,windspeed_10m&daily=weathercode,temperature_2m_max,precipitation_probability_max&temperature_unit=celsius&wind_speed_unit=kmh&forecast_days=4&timezone=auto`;
+        const res = await fetch(url);
+        const data = await res.json();
+
+        const temp = Math.round(data.current.temperature_2m);
+        const code = data.current.weathercode;
+        const wind = Math.round(data.current.windspeed_10m);
+
+        document.getElementById('weatherLoading').style.display = 'none';
+        document.getElementById('weatherContent').style.display = 'block';
+        document.getElementById('weatherTemp').textContent = `${temp}°C`;
+        document.getElementById('weatherDesc').textContent = `${weatherDesc(code)} · Wind ${wind} km/h`;
+        document.getElementById('weatherIcon').textContent = weatherIcon(code);
+
+        const alertEl = document.getElementById('weatherAlert');
+        if (wind > 50) {
+          alertEl.style.display = 'block';
+          alertEl.textContent = `⚠ High winds ${wind} km/h — drive with caution`;
+        }
+
+        const days = data.daily;
+        const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+        let forecastHtml = '';
+        for (let i = 1; i < Math.min(4, days.date.length); i++) {
+          const d = new Date(days.date[i] + 'T12:00:00');
+          const hi = Math.round(days.temperature_2m_max[i]);
+          const precip = days.precipitation_probability_max[i];
+          forecastHtml += `
+            <div style="flex:1;text-align:center;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:6px 4px">
+              <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px">${dayNames[d.getDay()]}</div>
+              <div style="font-size:16px;margin:3px 0">${weatherIcon(days.weathercode[i])}</div>
+              <div style="font-size:11px;font-weight:600">${hi}°</div>
+              ${precip > 20 ? `<div style="font-size:9px;color:#4a9eff;margin-top:1px">💧${precip}%</div>` : ''}
+            </div>`;
+        }
+        document.getElementById('weatherForecast').innerHTML = forecastHtml;
+
+      } catch(e) {
+        document.getElementById('weatherLoading').textContent = 'Weather unavailable';
+      }
+    },
+    () => {
+      document.getElementById('weatherLoading').textContent = '📍 Location access denied';
+    }
+  );
+}
+
+function weatherIcon(code) {
+  if (code === 0) return '☀️';
+  if (code <= 2) return '⛅';
+  if (code === 3) return '☁️';
+  if (code <= 49) return '🌫️';
+  if (code <= 67) return '🌧️';
+  if (code <= 77) return '❄️';
+  if (code <= 82) return '🌦️';
+  if (code <= 86) return '🌨️';
+  return '⛈️';
+}
+
+function weatherDesc(code) {
+  if (code === 0) return 'Clear sky';
+  if (code <= 2) return 'Partly cloudy';
+  if (code === 3) return 'Overcast';
+  if (code <= 49) return 'Foggy';
+  if (code <= 55) return 'Drizzle';
+  if (code <= 67) return 'Rain';
+  if (code <= 77) return 'Snow';
+  if (code <= 82) return 'Rain showers';
+  if (code <= 86) return 'Snow showers';
+  return 'Thunderstorm';
+}
+
+// ─── SHIFT SUMMARY & MOTIVATIONAL ────────────────────────────────────────────
+function renderShiftSummary() {
+  const card = document.getElementById('shiftSummaryCard');
+  if (!card) return;
+  if (currentRole !== 'driver' || !activeDriverId) { card.style.display = 'none'; return; }
+  card.style.display = 'block';
+
+  const t = todayStr();
+  const myRoutesToday = state.routes.filter(r => {
+    const key = r.id + '_' + r.date;
+    return state.assignments[key] === activeDriverId && r.date === t;
+  });
+  const isOff = isDriverOff(activeDriverId, t);
+
+  const summaries = [
+    { check: () => isOff,
+      line: '🏖️ Day off today', motive: 'Rest up — the road will be there tomorrow.' },
+    { check: () => myRoutesToday.length === 0,
+      line: '📭 No shifts today', motive: "Nothing on the board yet. Enjoy the quiet." },
+    { check: () => myRoutesToday.length === 1,
+      line: `🚐 1 route today — 43${myRoutesToday[0].num}`, motive: 'One run, make it count. Safe travels out there.' },
+    { check: () => myRoutesToday.length > 1,
+      line: `🔥 ${myRoutesToday.length} routes today`, motive: "Big day ahead. Stay sharp and drive safe." },
+  ];
+
+  const match = summaries.find(s => s.check()) || summaries[1];
+  document.getElementById('shiftSummaryLine').textContent = match.line;
+  document.getElementById('shiftMotiveLine').textContent = match.motive;
+}
+
+// ─── MY DAY-OFF STATUS ────────────────────────────────────────────────────────
+function renderMyDayoffStatus() {
+  const card = document.getElementById('myDayoffCard');
+  if (!card) return;
+  if (currentRole !== 'driver' || !activeDriverId) { card.style.display = 'none'; return; }
+  card.style.display = 'block';
+
+  const myRequests = state.dayoffs
+    .filter(d => d.driverId === activeDriverId)
+    .sort((a, b) => a.from.localeCompare(b.from))
+    .slice(0, 3);
+
+  const el = document.getElementById('myDayoffList');
+  if (!myRequests.length) {
+    el.innerHTML = `<div style="font-size:11px;color:var(--muted);padding:6px 0">No requests submitted</div>`;
+    return;
+  }
+
+  const statusColors = { pending: 'amber', approved: 'green', denied: 'red' };
+  el.innerHTML = myRequests.map(d => {
+    const from = parseDate(d.from).toLocaleDateString('en-CA', { month:'short', day:'numeric' });
+    const to = d.from === d.to ? '' : ` → ${parseDate(d.to).toLocaleDateString('en-CA', { month:'short', day:'numeric' })}`;
+    return `<div style="background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:8px 10px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;gap:8px">
+      <div>
+        <div style="font-size:12px;font-weight:600">${from}${to}</div>
+        ${d.reason ? `<div style="font-size:10px;color:var(--muted);margin-top:1px">${d.reason}</div>` : ''}
+      </div>
+      <span class="badge badge-${statusColors[d.status]}">${d.status}</span>
+    </div>`;
+  }).join('');
+}
+
+// ─── ANNOUNCEMENTS ────────────────────────────────────────────────────────────
+let announcements = [];
+let nextAnnouncementId = 1;
+
+function openAnnouncement() {
+  document.getElementById('announcementText').value = '';
+  document.getElementById('announcementPriority').value = 'normal';
+  document.getElementById('announcementModal').classList.remove('hidden');
+}
+
+function saveAnnouncement() {
+  const text = document.getElementById('announcementText').value.trim();
+  if (!text) { toast('Enter a message', 'error'); return; }
+  const priority = document.getElementById('announcementPriority').value;
+  announcements.unshift({
+    id: nextAnnouncementId++,
+    text,
+    priority,
+    postedAt: new Date().toLocaleString('en-CA', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' }),
+  });
+  closeModal('announcementModal');
+  renderAnnouncements();
+  toast('📢 Announcement posted');
+}
+
+function deleteAnnouncement(id) {
+  announcements = announcements.filter(a => a.id !== id);
+  renderAnnouncements();
+}
+
+function renderAnnouncements() {
+  const el = document.getElementById('announcementsList');
+  if (!announcements.length) {
+    el.innerHTML = `<div class="empty-state" style="padding:16px"><div style="font-size:20px;margin-bottom:6px">📢</div><p style="font-size:11px">No announcements yet</p></div>`;
+    return;
+  }
+  el.innerHTML = announcements.map(a => {
+    const isUrgent = a.priority === 'urgent';
+    return `<div style="
+      background:${isUrgent ? 'rgba(224,67,90,0.08)' : 'var(--bg)'};
+      border:1px solid ${isUrgent ? 'rgba(224,67,90,0.35)' : 'var(--border)'};
+      border-left:3px solid ${isUrgent ? 'var(--red)' : 'var(--accent)'};
+      border-radius:7px;padding:10px 12px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+        <div style="font-size:12px;line-height:1.5;flex:1">${a.text}</div>
+        ${currentRole === 'operator' ? `<button onclick="deleteAnnouncement(${a.id})" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;padding:0;flex-shrink:0">✕</button>` : ''}
+      </div>
+      <div style="font-size:10px;color:var(--muted);margin-top:5px;display:flex;align-items:center;gap:6px">
+        ${isUrgent ? '<span style="color:var(--red);font-weight:700;text-transform:uppercase;font-size:9px;letter-spacing:1px">Urgent</span>' : ''}
+        ${a.postedAt}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ─── DAY SHIFTS MODAL (OPERATOR) ─────────────────────────────────────────────
+function openDayShiftsModal(dateStr) {
+  const d = parseDate(dateStr);
+  const isToday = dateStr === todayStr();
+  const label = d.toLocaleDateString('en-CA', { weekday:'long', month:'long', day:'numeric', year:'numeric' });
+
+  document.getElementById('dayShiftsTitle').textContent = isToday ? "TODAY'S SHIFTS" : "SHIFTS";
+  document.getElementById('dayShiftsDate').textContent = label;
+
+  const dayRoutes = state.routes.filter(r => r.date === dateStr);
+  const content = document.getElementById('dayShiftsContent');
+
+  if (!dayRoutes.length) {
+    content.innerHTML = `
+      <div style="text-align:center;padding:40px 20px">
+        <div style="font-size:40px;margin-bottom:12px">📭</div>
+        <div style="font-family:var(--font-display);font-size:20px;letter-spacing:2px;color:var(--muted);margin-bottom:6px">NO ROUTES</div>
+        <div style="font-size:12px;color:var(--muted)">No routes scheduled for this day.</div>
+      </div>`;
+  } else {
+    content.innerHTML = `<div style="display:flex;flex-direction:column;gap:8px">` +
+      dayRoutes.map(r => {
+        const key = r.id + '_' + dateStr;
+        const driverId = state.assignments[key];
+        const driver = driverId ? state.drivers.find(d => d.id === driverId) : null;
+        return `<div style="background:var(--bg);border:1px solid ${driver ? 'var(--border)' : 'rgba(224,67,90,0.3)'};border-radius:10px;padding:14px 18px;display:flex;align-items:center;gap:16px">
+          <div style="font-family:var(--font-mono);font-size:22px;font-weight:700;color:var(--accent);min-width:68px;letter-spacing:1px">43${r.num}</div>
+          <div style="flex:1">
+            <div style="font-size:14px;font-weight:600">${r.area}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
+            ${driver
+              ? `<div style="width:32px;height:32px;border-radius:50%;background:${driver.color}22;color:${driver.color};display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:14px">${driver.firstName[0]}${driver.lastName[0]}</div>
+                 <span style="font-size:13px;font-weight:600">${driver.firstName} ${driver.lastName}</span>`
+              : `<span style="font-size:12px;color:var(--red);font-weight:600">⚠ Unassigned</span>`
+            }
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="closeModal('dayShiftsModal');openAssign(${r.id})" style="font-size:11px">✎</button>
+        </div>`;
+      }).join('') + `</div>`;
+  }
+
+  document.getElementById('dayShiftsModal').classList.remove('hidden');
+}
+
+// ─── TOMORROW MODAL ──────────────────────────────────────────────────────────
+function getTomorrowStr() {
+  const t = new Date(TODAY);
+  t.setDate(t.getDate() + 1);
+  return formatDate(t);
+}
+
+function openTomorrowModal() {
+  const tmrStr = getTomorrowStr();
+  const tmrDate = parseDate(tmrStr);
+  const label = tmrDate.toLocaleDateString('en-CA', { weekday:'long', month:'long', day:'numeric', year:'numeric' });
+  document.getElementById('tomorrowDateLabel').textContent = label;
+
+  let tmrRoutes = state.routes.filter(r => r.date === tmrStr);
+
+  // Driver: only their assigned routes
+  if (currentRole === 'driver' && activeDriverId) {
+    tmrRoutes = tmrRoutes.filter(r => {
+      const key = r.id + '_' + tmrStr;
+      return state.assignments[key] === activeDriverId;
+    });
+  }
+
+  const content = document.getElementById('tomorrowContent');
+
+  if (!tmrRoutes.length) {
+    content.innerHTML = `
+      <div style="text-align:center;padding:48px 20px">
+        <div style="font-size:48px;margin-bottom:16px">🌙</div>
+        <div style="font-family:var(--font-display);font-size:22px;letter-spacing:2px;color:var(--muted);margin-bottom:8px">NOTHING YET</div>
+        <div style="font-size:13px;color:var(--muted)">
+          ${currentRole === 'operator' ? "No routes added for tomorrow. Add some using the sidebar." : "No shifts scheduled for tomorrow. Check back later!"}
+        </div>
+      </div>`;
+  } else {
+    if (currentRole === 'operator') {
+      content.innerHTML = `<div style="display:flex;flex-direction:column;gap:8px">` +
+        tmrRoutes.map(r => {
+          const key = r.id + '_' + tmrStr;
+          const driverId = state.assignments[key];
+          const driver = driverId ? state.drivers.find(d => d.id === driverId) : null;
+          return `<div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:14px 20px;display:flex;align-items:center;gap:20px">
+            <div style="font-family:var(--font-mono);font-size:22px;font-weight:700;color:var(--accent);min-width:64px;letter-spacing:1px">43${r.num}</div>
+            <div style="flex:1;font-size:14px;font-weight:500">${r.area}</div>
+            <div style="display:flex;align-items:center;gap:10px">
+              ${driver
+                ? `<div style="width:30px;height:30px;border-radius:50%;background:${driver.color}22;color:${driver.color};display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:13px">${driver.firstName[0]}${driver.lastName[0]}</div>
+                   <span style="font-size:13px;font-weight:600">${driver.firstName} ${driver.lastName}</span>`
+                : `<span style="font-size:13px;color:var(--red)">Unassigned</span>`
+              }
+            </div>
+          </div>`;
+        }).join('') + `</div>`;
+    } else {
+      content.innerHTML = `<div style="display:flex;flex-direction:column;gap:8px">` +
+        tmrRoutes.map(r => {
+          const key = r.id + '_' + tmrStr;
+          const driverId = state.assignments[key];
+          const driver = driverId ? state.drivers.find(d => d.id === driverId) : null;
+          return `<div style="background:rgba(240,165,0,0.07);border:1px solid rgba(240,165,0,0.3);border-radius:10px;padding:14px 20px;display:flex;align-items:center;gap:20px">
+            <div style="font-family:var(--font-mono);font-size:22px;font-weight:700;color:var(--accent);min-width:64px;letter-spacing:1px">43${r.num}</div>
+            <div style="flex:1;font-size:14px;font-weight:500">${r.area}</div>
+            ${driver ? `<span style="font-size:13px;font-weight:600;color:var(--accent)">${driver.firstName} ${driver.lastName}</span>` : ''}
+          </div>`;
+        }).join('') + `</div>`;
+    }
+  }
+
+  document.getElementById('tomorrowModal').classList.remove('hidden');
+}
+
+// ─── UTILS ────────────────────────────────────────────────────────────────────
+function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+function toast(msg, type = 'success') {
+  const el = document.createElement('div');
+  el.className = `toast ${type === 'error' ? 'error' : type === 'warn' ? 'warn' : ''}`;
+  el.textContent = msg;
+  document.getElementById('toastContainer').appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+
+function viewDriver(id) { /* future: expand driver detail */ }
+
+// ─── OPERATOR: SET DRIVER PIN ────────────────────────────────────────────────
+let settingPinForDriverId = null;
+
+function openSetDriverPin(driverId) {
+  settingPinForDriverId = driverId;
+  const driver = state.drivers.find(d => d.id === driverId);
+  document.getElementById('setDriverPinTitle').textContent = driver.pin !== null ? 'RESET DRIVER PIN' : 'SET DRIVER PIN';
+  document.getElementById('setDriverPinName').innerHTML = `<strong>${driver.firstName} ${driver.lastName}</strong> · ${driver.driverId || ''}`;
+  document.getElementById('setDPinNew').value = '';
+  document.getElementById('setDPinConfirm').value = '';
+  document.getElementById('setDPinError').style.display = 'none';
+  document.getElementById('setDriverPinModal').classList.remove('hidden');
+}
+
+function saveSetDriverPin() {
+  const driver = state.drivers.find(d => d.id === settingPinForDriverId);
+  const newPin = document.getElementById('setDPinNew').value;
+  const confirm = document.getElementById('setDPinConfirm').value;
+  const errEl = document.getElementById('setDPinError');
+  errEl.style.display = 'none';
+  if (!newPin || newPin.length < 4) {
+    errEl.textContent = 'PIN must be at least 4 digits.'; errEl.style.display = 'block'; return;
+  }
+  if (newPin !== confirm) {
+    errEl.textContent = 'PINs do not match.'; errEl.style.display = 'block'; return;
+  }
+  driver.pin = newPin;
+  closeModal('setDriverPinModal');
+  toast(`✓ PIN set for ${driver.firstName} ${driver.lastName}`);
+  renderDriversTable();
+}
+
+// ─── DRIVER CHANGE PIN ───────────────────────────────────────────────────────
+function openDriverChangePin() {
+  document.getElementById('dPinCurrent').value = '';
+  document.getElementById('dPinNew').value = '';
+  document.getElementById('dPinConfirm').value = '';
+  document.getElementById('dPinChangeError').style.display = 'none';
+  document.getElementById('driverChangePinModal').classList.remove('hidden');
+}
+
+function saveDriverPin() {
+  const driver = state.drivers.find(d => d.id === activeDriverId);
+  if (!driver) return;
+  const current = document.getElementById('dPinCurrent').value;
+  const newPin = document.getElementById('dPinNew').value;
+  const confirm = document.getElementById('dPinConfirm').value;
+  const errEl = document.getElementById('dPinChangeError');
+  errEl.style.display = 'none';
+
+  if (current !== driver.pin) {
+    errEl.textContent = 'Current PIN is incorrect.'; errEl.style.display = 'block'; return;
+  }
+  if (!newPin || newPin.length < 4) {
+    errEl.textContent = 'New PIN must be at least 4 digits.'; errEl.style.display = 'block'; return;
+  }
+  if (newPin !== confirm) {
+    errEl.textContent = 'New PINs do not match.'; errEl.style.display = 'block'; return;
+  }
+  driver.pin = newPin;
+  closeModal('driverChangePinModal');
+  toast('✓ Your PIN has been updated');
+}
+
+// ─── CHANGE PIN (OPERATOR) ───────────────────────────────────────────────────
+function openChangePin() {
+  document.getElementById('pinCurrent').value = '';
+  document.getElementById('pinNew').value = '';
+  document.getElementById('pinConfirm').value = '';
+  document.getElementById('pinChangeError').style.display = 'none';
+  document.getElementById('changePinModal').classList.remove('hidden');
+}
+
+function saveNewPin() {
+  const current = document.getElementById('pinCurrent').value;
+  const newPin = document.getElementById('pinNew').value;
+  const confirm = document.getElementById('pinConfirm').value;
+  const errEl = document.getElementById('pinChangeError');
+
+  errEl.style.display = 'none';
+
+  if (current !== OPERATOR_PIN) {
+    errEl.textContent = 'Current PIN is incorrect.';
+    errEl.style.display = 'block';
+    return;
+  }
+  if (!newPin || newPin.length < 4) {
+    errEl.textContent = 'New PIN must be at least 4 digits.';
+    errEl.style.display = 'block';
+    return;
+  }
+  if (newPin !== confirm) {
+    errEl.textContent = 'New PINs do not match.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  OPERATOR_PIN = newPin;
+  closeModal('changePinModal');
+  toast('✓ PIN updated successfully');
+}
+</script>
+</body>
+</html>
